@@ -95,6 +95,9 @@ def submit_log():
         return jsonify({"error": "Invalid numeric format for hours or mood"}), 400
 
     conn = get_db_connection()
+    # Delete any existing log for this intern on this date to prevent duplicates
+    db_execute(conn, 'DELETE FROM intern_logs WHERE intern_name = ? AND date_logged = ?', (name, date))
+    
     db_execute(conn, '''
         INSERT INTO intern_logs (
             intern_name, date_logged, check_in, check_out, hours_worked,
@@ -106,6 +109,21 @@ def submit_log():
     conn.close()
 
     return jsonify({"message": "Daily log submitted successfully!"}), 201
+
+
+@app.route('/logs/<int:log_id>', methods=['DELETE'])
+def delete_log(log_id):
+    conn = get_db_connection()
+    log = db_query(conn, 'SELECT * FROM intern_logs WHERE id = ?', (log_id,))
+    if not log:
+        conn.close()
+        return jsonify({"error": "Daily log not found"}), 404
+
+    db_execute(conn, 'DELETE FROM intern_logs WHERE id = ?', (log_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Daily log deleted successfully!"})
+
 
 
 # ----------------- TASKS / PROJECT TRACKER ROUTES -----------------
