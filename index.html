@@ -854,6 +854,7 @@
                                     <th>Category</th>
                                     <th>Tasks Completed</th>
                                     <th>Deliv?</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="logs-table-body">
@@ -1240,7 +1241,9 @@
         }
 
         document.getElementById('log_checkin').addEventListener('change', autoCalculateHours);
+        document.getElementById('log_checkin').addEventListener('input', autoCalculateHours);
         document.getElementById('log_checkout').addEventListener('change', autoCalculateHours);
+        document.getElementById('log_checkout').addEventListener('input', autoCalculateHours);
         autoCalculateHours(); // Run once initially
 
         // Make clicking anywhere inside the time input box trigger the browser timepicker popup
@@ -1436,7 +1439,7 @@
             const tbody = document.getElementById('logs-table-body');
             tbody.innerHTML = '';
             if (state.logs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No activity logs entered.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No activity logs entered.</td></tr>';
                 return;
             }
             state.logs.forEach(log => {
@@ -1452,6 +1455,9 @@
                         ${log.blockers && log.blockers !== 'None' && log.blockers !== '' ? `<div style="color:var(--danger); font-size:12px; margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(log.blockers)}</div>` : ''}
                     </td>
                     <td><span class="badge ${log.deliverable_completed === 'Yes' ? 'badge-success' : 'badge-warning'}">${log.deliverable_completed || 'No'}</span></td>
+                    <td class="actions-cell">
+                        <button onclick="deleteLog(${log.id})" class="btn-action delete" title="Delete Log"><i class="fa-solid fa-trash"></i></button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -1609,9 +1615,28 @@
             }
         }
 
+        // Action Helpers: Delete daily log
+        async function deleteLog(logId) {
+            if (!confirm("Are you sure you want to delete this daily log?")) return;
+            try {
+                const res = await fetch(`${API_URL}/logs/${logId}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    showToast("Daily log removed successfully.");
+                    fetchData();
+                } else {
+                    showToast("Failed to delete daily log", "error");
+                }
+            } catch (err) {
+                showToast("Connection to backend lost", "error");
+            }
+        }
+
         // Form Submit Handler: Save Daily Log
         document.getElementById('logForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            autoCalculateHours(); // Ensure hours are calculated and select value is updated right before reading
             const submitBtn = this.querySelector('.btn-submit');
             submitBtn.disabled = true;
 
@@ -1641,6 +1666,7 @@
                     showToast("Daily log logged successfully!", "success");
                     this.reset();
                     document.getElementById('log_date').value = todayStr;
+                    autoCalculateHours(); // Recalculate hours after reset so it doesn't stay at default 1 hour
                     fetchData();
                 } else {
                     const err = await res.json();
