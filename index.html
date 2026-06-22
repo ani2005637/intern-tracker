@@ -842,6 +842,8 @@
                             <thead>
                                 <tr>
                                     <th>Date</th>
+                                    <th>Check-In</th>
+                                    <th>Check-Out</th>
                                     <th>Hours</th>
                                     <th>Category</th>
                                     <th>Tasks Completed</th>
@@ -1211,6 +1213,30 @@
             });
         });
 
+        // Automatically calculate hours from check-in/out
+        function autoCalculateHours() {
+            const checkinVal = document.getElementById('log_checkin').value;
+            const checkoutVal = document.getElementById('log_checkout').value;
+            if (!checkinVal || !checkoutVal) return;
+
+            const [inH, inM] = checkinVal.split(':').map(Number);
+            const [outH, outM] = checkoutVal.split(':').map(Number);
+
+            let diffMin = (outH * 60 + outM) - (inH * 60 + inM);
+            if (diffMin < 0) {
+                diffMin += 24 * 60; // Handle overnight shifts
+            }
+
+            const diffHours = diffMin / 60;
+            const roundedHours = Math.min(Math.max(Math.round(diffHours), 1), 10);
+            
+            document.getElementById('log_hours').value = roundedHours.toString();
+        }
+
+        document.getElementById('log_checkin').addEventListener('change', autoCalculateHours);
+        document.getElementById('log_checkout').addEventListener('change', autoCalculateHours);
+        autoCalculateHours(); // Run once initially
+
         // Toast alert builder
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
@@ -1396,13 +1422,15 @@
             const tbody = document.getElementById('logs-table-body');
             tbody.innerHTML = '';
             if (state.logs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No activity logs entered.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No activity logs entered.</td></tr>';
                 return;
             }
             state.logs.forEach(log => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${log.date_logged}</td>
+                    <td>${log.check_in || '-'}</td>
+                    <td>${log.check_out || '-'}</td>
                     <td style="font-weight:700;">${log.hours_worked} hrs</td>
                     <td><span class="badge badge-primary">${escapeHTML(log.task_category || 'Other')}</span></td>
                     <td>
