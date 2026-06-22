@@ -350,6 +350,12 @@
             font-family: var(--font-main);
         }
 
+        input[type="time"]::-webkit-calendar-picker-indicator,
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
         input:focus, select:focus, textarea:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
@@ -1236,6 +1242,14 @@
         document.getElementById('log_checkin').addEventListener('change', autoCalculateHours);
         document.getElementById('log_checkout').addEventListener('change', autoCalculateHours);
         autoCalculateHours(); // Run once initially
+
+        // Make clicking anywhere inside the time input box trigger the browser timepicker popup
+        document.getElementById('log_checkin').addEventListener('click', function() {
+            try { this.showPicker(); } catch(e) {}
+        });
+        document.getElementById('log_checkout').addEventListener('click', function() {
+            try { this.showPicker(); } catch(e) {}
+        });
 
         // Toast alert builder
         function showToast(message, type = 'success') {
