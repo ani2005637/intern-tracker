@@ -4,27 +4,67 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-# Enable CORS so our frontend can interact with the server easily
 CORS(app)
 
-# Helper function to connect to SQLite
+# Helper function to get database connection (SQLite locally or PostgreSQL on Render)
 def get_db_connection():
-    conn = sqlite3.connect('tracker.db')
-    conn.row_factory = sqlite3.Row  # Returns database rows as dict-like objects
-    return conn
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        conn = psycopg2.connect(db_url, cursor_factory=RealDictCursor)
+        return conn
+    else:
+        conn = sqlite3.connect('tracker.db')
+        conn.row_factory = sqlite3.Row
+        return conn
+
+# Helper function to execute SELECT queries
+def db_query(conn, query, params=(), fetch=True):
+    db_url = os.environ.get('DATABASE_URL')
+    cursor = conn.cursor()
+    
+    if db_url:
+        # Convert SQLite ? placeholders to PostgreSQL %s
+        query = query.replace('?', '%s')
+        cursor.execute(query, params)
+        if fetch:
+            results = [dict(row) for row in cursor.fetchall()]
+        else:
+            results = None
+    else:
+        res = cursor.execute(query, params)
+        if fetch:
+            results = [dict(row) for row in res.fetchall()]
+        else:
+            results = None
+            
+    cursor.close()
+    return results
+
+# Helper function to execute INSERT/UPDATE/DELETE queries
+def db_execute(conn, query, params=()):
+    db_url = os.environ.get('DATABASE_URL')
+    cursor = conn.cursor()
+    if db_url:
+        query = query.replace('?', '%s')
+    cursor.execute(query, params)
+    cursor.close()
+
 
 # ----------------- FRONTEND ROUTE -----------------
 @app.route('/')
 def serve_frontend():
     return send_from_directory('.', 'index.html')
 
-# ----------------- DAILY LOGS ROUTE -----------------
+
+# ----------------- DAILY LOGS ROUTES -----------------
 @app.route('/logs', methods=['GET'])
 def get_logs():
     conn = get_db_connection()
-    logs = conn.execute('SELECT * FROM intern_logs ORDER BY date_logged DESC').fetchall()
+    logs = db_query(conn, 'SELECT * FROM intern_logs ORDER BY date_logged DESC')
     conn.close()
-    return jsonify([dict(row) for row in logs])
+    return jsonify(logs)
 
 @app.route('/submit', methods=['POST'])
 def submit_log():
@@ -55,7 +95,7 @@ def submit_log():
         return jsonify({"error": "Invalid numeric format for hours or mood"}), 400
 
     conn = get_db_connection()
-    conn.execute('''
+    db_execute(conn, '''
         INSERT INTO intern_logs (
             intern_name, date_logged, check_in, check_out, hours_worked,
             task_category, tasks_completed, deliverable_completed, blockers,
@@ -72,9 +112,9 @@ def submit_log():
 @app.route('/tasks', methods=['GET'])
 def get_tasks():
     conn = get_db_connection()
-    tasks = conn.execute('SELECT * FROM tasks ORDER BY due_date ASC').fetchall()
+    tasks = db_query(conn, 'SELECT * FROM tasks ORDER BY due_date ASC')
     conn.close()
-    return jsonify([dict(row) for row in tasks])
+    return jsonify(tasks)
 
 @app.route('/tasks', methods=['POST'])
 def add_task():
@@ -102,7 +142,7 @@ def add_task():
         percent_done = 0
 
     conn = get_db_connection()
-    conn.execute('''
+    db_execute(conn, '''
         INSERT INTO tasks (
             intern_name, task_name, category, assigned_date, due_date,
             priority, status, percent_done, assigned_by, notes
@@ -125,7 +165,7 @@ def update_task(task_id):
     notes = data.get('notes')
 
     conn = get_db_connection()
-    task = conn.execute('SELECT * FROM tasks WHERE id = ?', (task_id,)).fetchone()
+    task = db_query(conn, 'SELECT * FROM tasks WHERE id = ?', (task_id,))
     if not task:
         conn.close()
         return jsonify({"error": "Task not found"}), 404
@@ -136,7 +176,6 @@ def update_task(task_id):
     if status is not None:
         updates.append("status = ?")
         params.append(status)
-        # If marked completed and completed_date is empty, default to today
         if status == 'Completed' and not completed_date:
             import datetime
             completed_date = datetime.date.today().isoformat()
@@ -157,7 +196,7 @@ def update_task(task_id):
 
     if updates:
         params.append(task_id)
-        conn.execute(f'UPDATE tasks SET {", ".join(updates)} WHERE id = ?', params)
+        db_execute(conn, f'UPDATE tasks SET {", ".join(updates)} WHERE id = ?', params)
         conn.commit()
 
     conn.close()
@@ -166,12 +205,12 @@ def update_task(task_id):
 @app.route('/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
     conn = get_db_connection()
-    task = conn.execute('SELECT * FROM tasks WHERE id = ?', (task_id,)).fetchone()
+    task = db_query(conn, 'SELECT * FROM tasks WHERE id = ?', (task_id,))
     if not task:
         conn.close()
         return jsonify({"error": "Task not found"}), 404
 
-    conn.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+    db_execute(conn, 'DELETE FROM tasks WHERE id = ?', (task_id,))
     conn.commit()
     conn.close()
     return jsonify({"message": "Task deleted successfully!"})
@@ -181,9 +220,9 @@ def delete_task(task_id):
 @app.route('/skills', methods=['GET'])
 def get_skills():
     conn = get_db_connection()
-    skills = conn.execute('SELECT * FROM skills_log ORDER BY date_logged DESC').fetchall()
+    skills = db_query(conn, 'SELECT * FROM skills_log ORDER BY date_logged DESC')
     conn.close()
-    return jsonify([dict(row) for row in skills])
+    return jsonify(skills)
 
 @app.route('/skills', methods=['POST'])
 def add_skill():
@@ -213,7 +252,7 @@ def add_skill():
         return jsonify({"error": "Invalid format for hours or proficiency levels"}), 400
 
     conn = get_db_connection()
-    conn.execute('''
+    db_execute(conn, '''
         INSERT INTO skills_log (
             intern_name, date_logged, skill_tool, category, resource_course,
             hours_spent, proficiency_before, proficiency_after, certificate, notes
@@ -229,9 +268,9 @@ def add_skill():
 @app.route('/feedback', methods=['GET'])
 def get_feedback():
     conn = get_db_connection()
-    feedbacks = conn.execute('SELECT * FROM mentor_feedback ORDER BY date_logged DESC').fetchall()
+    feedbacks = db_query(conn, 'SELECT * FROM mentor_feedback ORDER BY date_logged DESC')
     conn.close()
-    return jsonify([dict(row) for row in feedbacks])
+    return jsonify(feedbacks)
 
 @app.route('/feedback', methods=['POST'])
 def add_feedback():
@@ -254,7 +293,7 @@ def add_feedback():
         return jsonify({"error": "Missing required fields (intern_name, date_logged, feedback_from, type, feedback_summary)"}), 400
 
     conn = get_db_connection()
-    conn.execute('''
+    db_execute(conn, '''
         INSERT INTO mentor_feedback (
             intern_name, date_logged, feedback_from, type, feedback_summary,
             area_to_improve, strength_noted, action_taken, follow_up, follow_up_date
