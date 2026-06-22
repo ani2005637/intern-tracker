@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internship Hub - Track & Accelerate</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons for modern visuals -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-gradient: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #09090b 100%);
+            --card-bg: rgba(24, 24, 27, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --secondary: #a855f7;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1080px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        /* Header styling */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 20px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .brand-title h1 {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #ffffff, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-title p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .status-pill {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--success);
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+
+        /* Quick Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--primary);
+        }
+
+        .stat-card:nth-child(2) .stat-icon { color: var(--secondary); }
+        .stat-card:nth-child(3) .stat-icon { color: var(--success); }
+
+        .stat-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Main Content Layout */
+        .dashboard-body {
+            display: grid;
+            grid-template-columns: 1.2fr 1.8fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-body {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards and Panels */
+        .panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .panel-title i {
+            color: var(--primary);
+        }
+
+        /* Forms Elements */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 14px;
+            color: #fff;
+            outline: none;
+            font-family: var(--font-main);
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        select option {
+            background: #18181b;
+            color: #fff;
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        /* Buttons */
+        .btn-submit {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
+            margin-top: 10px;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        /* Filters and Tools */
+        .logs-controls {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .search-box {
+            position: relative;
+            flex-grow: 1;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .search-box input {
+            padding-left: 40px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            width: 45px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        /* Logs List */
+        .logs-list-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: 520px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .logs-list-wrapper::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .logs-list-wrapper::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .logs-list-wrapper::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .log-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .log-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .log-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .log-user {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: #fff;
+        }
+
+        .log-date {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .hours-badge {
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            color: #818cf8;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .log-tasks {
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text-main);
+            background: rgba(0, 0, 0, 0.15);
+            padding: 10px 12px;
+            border-radius: 8px;
+            border-left: 2px solid var(--primary);
+        }
+
+        .log-blocker {
+            font-size: 13px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px dashed rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .log-blocker i {
+            color: var(--danger);
+            margin-top: 2px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--text-muted);
+            gap: 16px;
+        }
+
+        .empty-state i {
+            font-size: 40px;
+            color: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Toasts Custom System */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: #18181b;
+            border: 1px solid var(--card-border);
+            padding: 14px 20px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            transform: translateY(20px);
+            opacity: 0;
+            animation: slideUp 0.3s forwards;
+        }
+
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.error { border-left: 4px solid var(--danger); }
+        .toast.info { border-left: 4px solid var(--primary); }
+
+        .toast.success i { color: var(--success); }
+        .toast.error i { color: var(--danger); }
+        .toast.info i { color: var(--primary); }
+
+        @keyframes slideUp {
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .toast.fade-out {
+            animation: fadeOut 0.3s forwards;
+        }
+
+        @keyframes fadeOut {
+            to { transform: scale(0.95); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="brand">
+                <div class="brand-logo"><i class="fa-solid fa-bolt"></i></div>
+                <div class="brand-title">
+                    <h1>Internship Tracker</h1>
+                    <p>SQLite + Flask + HTML5 Stack</p>
+                </div>
+            </div>
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                <span>Backend Connected</span>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value" id="stat-interns">0</span>
+                    <span class="stat-label">Active Interns</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value" id="stat-hours">0h</span>
+                    <span class="stat-label">Total Logged Hours</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fa-solid fa-file-invoice"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value" id="stat-logs">0</span>
+                    <span class="stat-label">Total Submissions</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="dashboard-body">
+            <!-- Left Column: Submission Panel -->
+            <div class="panel">
+                <div class="panel-title">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span>Log Daily Progress</span>
+                </div>
+
+                <form id="logForm">
+                    <div class="form-group">
+                        <label for="intern_name">Intern Name</label>
+                        <select id="intern_name" required>
+                            <option value="">Choose your profile...</option>
+                            <option value="Srikakula Anirudh">Srikakula Anirudh</option>
+                            <option value="Aanya Sharma">Aanya Sharma</option>
+                            <option value="Kabir Mehta">Kabir Mehta</option>
+                            <option value="Rohan Das">Rohan Das</option>
+                            <option value="Priya Patel">Priya Patel</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date_logged">Date</label>
+                        <input type="date" id="date_logged" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="hours_worked">Hours Devoted</label>
+                        <select id="hours_worked" required>
+                            <option value="">Select hours...</option>
+                            <option value="1">1 Hour</option>
+                            <option value="2">2 Hours</option>
+                            <option value="3">3 Hours</option>
+                            <option value="4">4 Hours</option>
+                            <option value="5">5 Hours</option>
+                            <option value="6">6 Hours</option>
+                            <option value="7">7 Hours</option>
+                            <option value="8">8 Hours</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tasks_completed">Task Category</label>
+                        <select id="tasks_completed" required>
+                            <option value="">Select a task category...</option>
+                            <option value="Frontend Development">Frontend Development (HTML/CSS/JS)</option>
+                            <option value="Backend Development">Backend Development (Python/APIs)</option>
+                            <option value="Database Setup">Database Setup & Management</option>
+                            <option value="Bug Fixing & Maintenance">Bug Fixing & Maintenance</option>
+                            <option value="Documentation & Planning">Documentation & Planning</option>
+                            <option value="Testing & QA">Testing & QA</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="blockers">Blockers / Challenges (Optional)</label>
+                        <textarea id="blockers" rows="2" placeholder="Detail any technical hurdles or dependencies holding you up..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-submit">
+                        <i class="fa-solid fa-paper-plane"></i> Submit Log
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right Column: Recent Activity Logs -->
+            <div class="panel">
+                <div class="panel-title" style="justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>Recent Team Updates</span>
+                    </div>
+                    <div class="logs-controls">
+                        <!-- Tiny search bar inline -->
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="logSearch" placeholder="Filter updates...">
+                        </div>
+                        <button class="refresh-btn" type="button" onclick="fetchLogs()" title="Refresh Logs">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="logsContainer" class="logs-list-wrapper">
+                    <!-- Logs dynamically populate here -->
+                    <div class="empty-state">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <p>Syncing with SQLite...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        const API_URL = '';
+        let cachedLogs = [];
+
+        // Dynamic Toast Notifications
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            let icon = 'fa-circle-info';
+            if (type === 'success') icon = 'fa-circle-check';
+            if (type === 'error') icon = 'fa-circle-exclamation';
+
+            toast.innerHTML = `
+                <i class="fa-solid ${icon}"></i>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // Fetch logs and render them
+        async function fetchLogs() {
+            try {
+                const response = await fetch(`${API_URL}/logs`);
+                if (!response.ok) throw new Error('API server returned error status');
+                
+                const logs = await response.json();
+                cachedLogs = logs;
+                
+                // Update status pill to active
+                document.querySelector('.status-pill').innerHTML = `
+                    <span class="status-dot"></span>
+                    <span>Backend Connected</span>
+                `;
+                document.querySelector('.status-pill').style.color = 'var(--success)';
+                document.querySelector('.status-pill').style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                document.querySelector('.status-pill').style.background = 'rgba(16, 185, 129, 0.1)';
+
+                renderLogs(logs);
+                calculateStats(logs);
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                
+                // Update status pill to inactive/error
+                document.querySelector('.status-pill').innerHTML = `
+                    <span class="status-dot" style="background-color: var(--danger); box-shadow: 0 0 8px var(--danger);"></span>
+                    <span>Backend Offline</span>
+                `;
+                document.querySelector('.status-pill').style.color = 'var(--danger)';
+                document.querySelector('.status-pill').style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                document.querySelector('.status-pill').style.background = 'rgba(239, 68, 68, 0.1)';
+
+                document.getElementById('logsContainer').innerHTML = `
+                    <div class="empty-state">
+                        <i class="fa-solid fa-circle-exclamation" style="color: var(--danger);"></i>
+                        <p style="color: var(--danger); font-weight: 500;">Connection Failed</p>
+                        <span style="font-size: 12px; color: var(--text-muted);">Please confirm the Python server is running on port 5000.</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Aggregate statistics from logs
+        function calculateStats(logs) {
+            const totalSubmissions = logs.length;
+            
+            // Total Hours
+            const totalHours = logs.reduce((sum, item) => sum + parseFloat(item.hours_worked || 0), 0);
+            
+            // Unique interns
+            const uniqueInterns = new Set(logs.map(item => item.intern_name)).size;
+
+            document.getElementById('stat-interns').innerText = uniqueInterns;
+            document.getElementById('stat-hours').innerText = `${totalHours.toFixed(1)}h`;
+            document.getElementById('stat-logs').innerText = totalSubmissions;
+        }
+
+        // Render the logs into the container
+        function renderLogs(logsList) {
+            const container = document.getElementById('logsContainer');
+            container.innerHTML = '';
+
+            if (logsList.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fa-solid fa-inbox"></i>
+                        <p>No activity logs recorded yet.</p>
+                        <span style="font-size: 12px;">Fill out the form to post the first update!</span>
+                    </div>
+                `;
+                return;
+            }
+
+            logsList.forEach(log => {
+                const logItem = document.createElement('div');
+                logItem.className = 'log-item';
+                
+                // Format Blocker section if exists and isn't 'None'
+                const hasBlocker = log.blockers && log.blockers.trim().toLowerCase() !== 'none' && log.blockers.trim() !== '';
+                const blockerHTML = hasBlocker ? `
+                    <div class="log-blocker">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span><strong>Blocker:</strong> ${escapeHTML(log.blockers)}</span>
+                    </div>
+                ` : '';
+
+                logItem.innerHTML = `
+                    <div class="log-meta">
+                        <div class="log-user">
+                            <span class="user-name">${escapeHTML(log.intern_name)}</span>
+                            <span class="log-date"><i class="fa-regular fa-calendar-days"></i> ${escapeHTML(log.date_logged)}</span>
+                        </div>
+                        <div class="hours-badge">
+                            <i class="fa-regular fa-clock"></i>
+                            <span>${log.hours_worked} hrs</span>
+                        </div>
+                    </div>
+                    <div class="log-tasks">
+                        ${escapeHTML(log.tasks_completed).replace(/\n/g, '<br>')}
+                    </div>
+                    ${blockerHTML}
+                `;
+                container.appendChild(logItem);
+            });
+        }
+
+        // HTML escaping helper to prevent XSS
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        // Search/Filter Functionality
+        document.getElementById('logSearch').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase().trim();
+            if (!query) {
+                renderLogs(cachedLogs);
+                return;
+            }
+            
+            const filtered = cachedLogs.filter(log => {
+                return log.intern_name.toLowerCase().includes(query) || 
+                       log.tasks_completed.toLowerCase().includes(query) ||
+                       (log.blockers && log.blockers.toLowerCase().includes(query));
+            });
+            renderLogs(filtered);
+        });
+
+        // Submit Form Handler
+        document.getElementById('logForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const submitBtn = this.querySelector('.btn-submit');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+
+            const payload = {
+                intern_name: document.getElementById('intern_name').value,
+                date_logged: document.getElementById('date_logged').value,
+                hours_worked: parseFloat(document.getElementById('hours_worked').value),
+                tasks_completed: document.getElementById('tasks_completed').value,
+                blockers: document.getElementById('blockers').value || 'None'
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/submit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showToast('Daily log submitted successfully!', 'success');
+                    document.getElementById('logForm').reset();
+                    // Keep today's date selected
+                    document.getElementById('date_logged').valueAsDate = new Date();
+                    fetchLogs(); // Reload stats and logs
+                } else {
+                    const errData = await response.json();
+                    showToast(errData.error || 'Failed to submit log.', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to connect to the Flask server. Is it running?', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Log';
+            }
+        });
+
+        // Initialize Form with Today's Date
+        document.getElementById('date_logged').valueAsDate = new Date();
+
+        // Initial Load
+        fetchLogs();
+    </script>
+</body>
+</html>
