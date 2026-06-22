@@ -10,15 +10,9 @@ def init_db():
         conn = psycopg2.connect(db_url)
         cursor = conn.cursor()
         
-        # PostgreSQL Drop Tables
-        cursor.execute("DROP TABLE IF EXISTS intern_logs CASCADE")
-        cursor.execute("DROP TABLE IF EXISTS tasks CASCADE")
-        cursor.execute("DROP TABLE IF EXISTS skills_log CASCADE")
-        cursor.execute("DROP TABLE IF EXISTS mentor_feedback CASCADE")
-        
-        # PostgreSQL Create Tables
+        # PostgreSQL Create Tables (Safe: Do not drop existing tables, use IF NOT EXISTS)
         cursor.execute('''
-            CREATE TABLE intern_logs (
+            CREATE TABLE IF NOT EXISTS intern_logs (
                 id SERIAL PRIMARY KEY,
                 intern_name VARCHAR(255) NOT NULL,
                 date_logged VARCHAR(50) NOT NULL,
@@ -36,7 +30,7 @@ def init_db():
         ''')
         
         cursor.execute('''
-            CREATE TABLE tasks (
+            CREATE TABLE IF NOT EXISTS tasks (
                 id SERIAL PRIMARY KEY,
                 intern_name VARCHAR(255) NOT NULL,
                 task_name VARCHAR(255) NOT NULL,
@@ -53,7 +47,7 @@ def init_db():
         ''')
         
         cursor.execute('''
-            CREATE TABLE skills_log (
+            CREATE TABLE IF NOT EXISTS skills_log (
                 id SERIAL PRIMARY KEY,
                 intern_name VARCHAR(255) NOT NULL,
                 date_logged VARCHAR(50) NOT NULL,
@@ -69,7 +63,7 @@ def init_db():
         ''')
         
         cursor.execute('''
-            CREATE TABLE mentor_feedback (
+            CREATE TABLE IF NOT EXISTS mentor_feedback (
                 id SERIAL PRIMARY KEY,
                 intern_name VARCHAR(255) NOT NULL,
                 date_logged VARCHAR(50) NOT NULL,
@@ -89,13 +83,9 @@ def init_db():
         conn = sqlite3.connect('tracker.db')
         cursor = conn.cursor()
         
-        cursor.execute("DROP TABLE IF EXISTS intern_logs")
-        cursor.execute("DROP TABLE IF EXISTS tasks")
-        cursor.execute("DROP TABLE IF EXISTS skills_log")
-        cursor.execute("DROP TABLE IF EXISTS mentor_feedback")
-        
+        # Local SQLite Create Tables (Safe: Do not drop existing tables, use IF NOT EXISTS)
         cursor.execute('''
-            CREATE TABLE intern_logs (
+            CREATE TABLE IF NOT EXISTS intern_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 intern_name TEXT NOT NULL,
                 date_logged TEXT NOT NULL,
@@ -113,7 +103,7 @@ def init_db():
         ''')
         
         cursor.execute('''
-            CREATE TABLE tasks (
+            CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 intern_name TEXT NOT NULL,
                 task_name TEXT NOT NULL,
@@ -130,7 +120,7 @@ def init_db():
         ''')
         
         cursor.execute('''
-            CREATE TABLE skills_log (
+            CREATE TABLE IF NOT EXISTS skills_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 intern_name TEXT NOT NULL,
                 date_logged TEXT NOT NULL,
@@ -146,7 +136,7 @@ def init_db():
         ''')
         
         cursor.execute('''
-            CREATE TABLE mentor_feedback (
+            CREATE TABLE IF NOT EXISTS mentor_feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 intern_name TEXT NOT NULL,
                 date_logged TEXT NOT NULL,
