@@ -2170,17 +2170,6 @@
                 weeklyData[w] = { hours: 0, days: new Set(), deliverables: 0 };
             }
 
-            // Helper to get dynamic Monday-to-Saturday week ranges relative to START_DATE
-            function getWeekRangeLabel(weekNum) {
-                const start = new Date(START_DATE.getTime());
-                start.setDate(start.getDate() + (weekNum - 1) * 7);
-                const end = new Date(START_DATE.getTime());
-                end.setDate(end.getDate() + (weekNum - 1) * 7 + 5); // Saturday is 5 days after Monday
-                
-                const opt = { month: 'short', day: 'numeric' };
-                return `Week ${weekNum} (${start.toLocaleDateString('en-US', opt)} - ${end.toLocaleDateString('en-US', opt)})`;
-            }
-
             filteredLogs.forEach(log => {
                 const logDate = new Date(log.date_logged);
                 const diffTime = logDate - START_DATE;
@@ -2210,7 +2199,7 @@
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${getWeekRangeLabel(w)}</td>
+                    <td>Week ${w}</td>
                     <td>${hoursVal.toFixed(1)} hrs</td>
                     <td>${daysCount} days</td>
                     <td>${avgHours}</td>
