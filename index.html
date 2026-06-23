@@ -820,7 +820,7 @@
             <div class="brand">
                 <div class="brand-logo"><i class="fa-solid fa-bolt"></i></div>
                 <div class="brand-title">
-                    <h1 id="logo-title">Sanna Portal</h1>
+                    <h1 id="logo-title">Sanna Innovations Portal</h1>
                     <p id="logo-subtitle">Internship System</p>
                 </div>
             </div>
@@ -1649,20 +1649,20 @@
             const logoTitle = document.getElementById('logo-title');
             const logoSubtitle = document.getElementById('logo-subtitle');
             
-            let brandTitle = "Sanna Portal";
+            let brandTitle = "Sanna Innovations Portal";
             let brandSubtitle = "Internship System";
 
             if (currentUser.role === 'Admin') {
                 document.body.classList.add('theme-admin');
-                brandTitle = "Sanna Admin";
+                brandTitle = "Sanna Innovations Admin";
                 brandSubtitle = "System Console";
             } else if (currentUser.role === 'Manager') {
                 document.body.classList.add('theme-manager');
-                brandTitle = "Sanna Manager";
+                brandTitle = "Sanna Innovations Manager";
                 brandSubtitle = "Team Management";
             } else if (currentUser.role === 'Employee') {
                 document.body.classList.add('theme-employee');
-                brandTitle = "Sanna Employee";
+                brandTitle = "Sanna Innovations Employee";
                 brandSubtitle = "Associate Portal";
             } else {
                 document.body.classList.add('theme-intern');
