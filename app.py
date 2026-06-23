@@ -48,6 +48,25 @@ def get_logged_in_user():
     except Exception:
         return None
 
+# Helper to find usernames of all subordinate users (strict hierarchical access)
+def get_subordinate_usernames(user):
+    role_weights = {"Intern": 1, "Employee": 2, "Manager": 3, "Admin": 4}
+    user_weight = role_weights.get(user['role'], 0)
+    
+    if user['role'] == 'Admin':
+        return None
+        
+    # Find all roles with a weight strictly lower than user's weight
+    sub_roles = [role for role, weight in role_weights.items() if weight < user_weight]
+    
+    # Query usernames of those roles
+    sub_users = list(db.users.find({"role": {"$in": sub_roles}}, {"username": 1}))
+    sub_usernames = [u['username'] for u in sub_users]
+    
+    # Always include the user's own username so they can see their own data
+    sub_usernames.append(user['username'])
+    return sub_usernames
+
 
 # ----------------- FRONTEND ROUTE -----------------
 @app.route('/')
@@ -162,8 +181,60 @@ def get_users():
     if role_filter:
         query['role'] = role_filter
 
+    # Fetch users
     users = list(db.users.find(query).sort("full_name", 1))
     return jsonify(serialize(users))
+
+
+@app.route('/users/<user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user['role'] not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden: Only Admins and Managers can remove users"}), 403
+
+    try:
+        target_user = db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return jsonify({"error": "Invalid user ID format"}), 400
+
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Prevent self-deletion
+    if str(target_user['_id']) == str(user['_id']):
+        return jsonify({"error": "You cannot remove yourself from the portal"}), 400
+
+    role_weights = {
+        "Intern": 1,
+        "Employee": 2,
+        "Manager": 3,
+        "Admin": 4
+    }
+
+    user_weight = role_weights.get(user['role'], 0)
+    target_weight = role_weights.get(target_user['role'], 0)
+
+    # Enforce hierarchical access control: Rank(A) > Rank(B)
+    if user_weight <= target_weight:
+        return jsonify({"error": "Forbidden: You can only remove users with a lower role rank than yours"}), 403
+
+    try:
+        # Delete user
+        db.users.delete_one({"_id": ObjectId(user_id)})
+        
+        # Cascade delete target user's records
+        db.intern_logs.delete_many({"intern_name": target_user['username']})
+        db.tasks.delete_many({"intern_name": target_user['username']})
+        db.skills_log.delete_many({"intern_name": target_user['username']})
+        db.mentor_feedback.delete_many({"intern_name": target_user['username']})
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to remove user: {str(e)}"}), 500
+
+    return jsonify({"message": f"User {target_user['full_name']} removed successfully!"})
 
 
 # ----------------- DAILY LOGS ROUTES (RBAC ENFORCED) -----------------
@@ -173,12 +244,13 @@ def get_logs():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    # Interns and Employees can only see their own logs
-    if user['role'] in ['Intern', 'Employee']:
-        logs = list(db.intern_logs.find({"intern_name": user['username']}).sort("date_logged", -1))
-    else:
-        # Managers and Admins can see all logs
+    subs = get_subordinate_usernames(user)
+    if subs is None:
+        # Admins see everyone's logs
         logs = list(db.intern_logs.find({}).sort("date_logged", -1))
+    else:
+        # Others see own logs + logs of subordinates
+        logs = list(db.intern_logs.find({"intern_name": {"$in": subs}}).sort("date_logged", -1))
     
     return jsonify(serialize(logs))
 
@@ -241,6 +313,93 @@ def submit_log():
     return jsonify({"message": "Daily log submitted successfully!"}), 201
 
 
+@app.route('/logs/<log_id>', methods=['PUT'])
+def update_log(log_id):
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        log = db.intern_logs.find_one({"_id": ObjectId(log_id)})
+    except Exception:
+        return jsonify({"error": "Invalid log ID format"}), 400
+
+    if not log:
+        return jsonify({"error": "Daily log not found"}), 404
+
+    # Interns/Employees can only update their own logs. Managers/Admins can update any log.
+    if user['role'] in ['Intern', 'Employee'] and log['intern_name'] != user['username']:
+        return jsonify({"error": "Forbidden: You cannot modify this log"}), 403
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    date = data.get('date_logged')
+    check_in = data.get('check_in', '')
+    check_out = data.get('check_out', '')
+    hours = data.get('hours_worked')
+    task_category = data.get('task_category', '')
+    tasks = data.get('tasks_completed')
+    deliverable = data.get('deliverable_completed', 'No')
+    blockers = data.get('blockers', 'None')
+    skills_used = data.get('skills_used', '')
+    mood = data.get('mood')
+    notes = data.get('notes', '')
+
+    if not date or hours is None or not tasks:
+        return jsonify({"error": "Missing required fields (date_logged, hours_worked, tasks_completed)"}), 400
+
+    try:
+        hours = float(hours)
+        mood = int(mood) if mood is not None else 5
+    except ValueError:
+        return jsonify({"error": "Invalid numeric format"}), 400
+
+    update_fields = {
+        "date_logged": date,
+        "check_in": check_in,
+        "check_out": check_out,
+        "hours_worked": hours,
+        "task_category": task_category,
+        "tasks_completed": tasks,
+        "deliverable_completed": deliverable,
+        "blockers": blockers,
+        "skills_used": skills_used,
+        "mood": mood,
+        "notes": notes
+    }
+
+    # If Admin/Manager is editing, they can also update the intern_name if it was supplied
+    if user['role'] not in ['Intern', 'Employee'] and 'intern_name' in data:
+        update_fields["intern_name"] = data.get('intern_name')
+
+    db.intern_logs.update_one({"_id": ObjectId(log_id)}, {"$set": update_fields})
+    return jsonify({"message": "Daily log updated successfully!"})
+
+
+@app.route('/logs/<log_id>', methods=['DELETE'])
+def delete_log(log_id):
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        log = db.intern_logs.find_one({"_id": ObjectId(log_id)})
+    except Exception:
+        return jsonify({"error": "Invalid log ID format"}), 400
+
+    if not log:
+        return jsonify({"error": "Daily log not found"}), 404
+
+    # Interns/Employees can only delete their own logs. Managers/Admins can delete any log.
+    if user['role'] in ['Intern', 'Employee'] and log['intern_name'] != user['username']:
+        return jsonify({"error": "Forbidden: You cannot delete this log"}), 403
+
+    db.intern_logs.delete_one({"_id": ObjectId(log_id)})
+    return jsonify({"message": "Daily log deleted successfully!"})
+
+
 # ----------------- TASKS ROUTES (RBAC ENFORCED) -----------------
 @app.route('/tasks', methods=['GET'])
 def get_tasks():
@@ -248,12 +407,13 @@ def get_tasks():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    # Interns and Employees only see tasks assigned to them
-    if user['role'] in ['Intern', 'Employee']:
-        tasks = list(db.tasks.find({"intern_name": user['username']}).sort("due_date", 1))
-    else:
-        # Managers/Admins see all tasks
+    subs = get_subordinate_usernames(user)
+    if subs is None:
+        # Admins see everyone's tasks
         tasks = list(db.tasks.find({}).sort("due_date", 1))
+    else:
+        # Others see own tasks + tasks of subordinates
+        tasks = list(db.tasks.find({"intern_name": {"$in": subs}}).sort("due_date", 1))
         
     return jsonify(serialize(tasks))
 
@@ -396,10 +556,13 @@ def get_skills():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    if user['role'] in ['Intern', 'Employee']:
-        skills = list(db.skills_log.find({"intern_name": user['username']}).sort("date_logged", -1))
-    else:
+    subs = get_subordinate_usernames(user)
+    if subs is None:
+        # Admins see everyone's skills
         skills = list(db.skills_log.find({}).sort("date_logged", -1))
+    else:
+        # Others see own skills + skills of subordinates
+        skills = list(db.skills_log.find({"intern_name": {"$in": subs}}).sort("date_logged", -1))
         
     return jsonify(serialize(skills))
 
@@ -466,10 +629,18 @@ def get_feedback():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    if user['role'] in ['Intern', 'Employee']:
-        feedback = list(db.mentor_feedback.find({"intern_name": user['username']}).sort("date_logged", -1))
-    else:
+    subs = get_subordinate_usernames(user)
+    if subs is None:
+        # Admins see everyone's feedback reviews
         feedback = list(db.mentor_feedback.find({}).sort("date_logged", -1))
+    else:
+        # Others see reviews written for/by them, or written for subordinates
+        feedback = list(db.mentor_feedback.find({
+            "$or": [
+                {"intern_name": {"$in": subs}},
+                {"feedback_from": user['username']}
+            ]
+        }).sort("date_logged", -1))
         
     return jsonify(serialize(feedback))
 

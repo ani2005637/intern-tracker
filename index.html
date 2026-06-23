@@ -904,7 +904,7 @@
                 </div>
 
                 <!-- Mood trend -->
-                <div class="panel">
+                <div class="panel" style="margin-bottom: 30px;">
                     <div class="panel-title">
                         <i class="fa-solid fa-face-smile"></i>
                         <span>Mood Trend — Last 10 Logs</span>
@@ -920,6 +920,29 @@
                                 </tr>
                             </thead>
                             <tbody id="dash-mood-table">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Team Directory & User Management Panel (Visible to Admins and Managers) -->
+                <div class="panel" id="team-roster-panel" style="display: none; margin-bottom: 30px;">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-users-gear" style="color: var(--primary);"></i>
+                        <span>Team Directory & User Management</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Full Name</th>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th style="width: 120px; text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="team-roster-table-body">
                                 <!-- Populated dynamically -->
                             </tbody>
                         </table>
@@ -1030,9 +1053,14 @@
                                 <textarea id="log_notes" rows="2" placeholder="Any extra supervisor details..."></textarea>
                             </div>
 
-                            <button type="submit" class="btn-submit">
-                                <i class="fa-solid fa-paper-plane"></i> Save Daily Log
-                            </button>
+                            <div class="form-actions" style="display: flex; gap: 10px; margin-top: 15px;">
+                                <button type="submit" class="btn-submit" id="btn-save-log" style="flex: 1;">
+                                    <i class="fa-solid fa-paper-plane"></i> Save Daily Log
+                                </button>
+                                <button type="button" class="btn-submit" id="btn-cancel-edit-log" style="background: rgba(255,255,255,0.05); color: var(--text-main); display: none; width: auto; flex: 0 0 auto;" onclick="cancelEditLog()">
+                                    Cancel Edit
+                                </button>
+                            </div>
                         </form>
                     </div>
 
@@ -1053,6 +1081,7 @@
                                         <th>Hours</th>
                                         <th>Tasks Completed</th>
                                         <th>Deliv?</th>
+                                        <th style="width: 100px; text-align: center;">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="logs-table-body">
@@ -1387,6 +1416,7 @@
         // Cache object holding current state
         let currentUser = null;
         let activeUsers = []; // Stores list of users dynamically fetched
+        let editingLogId = null; // Holds the ID of the log currently being updated
         
         let state = {
             logs: [],
@@ -1531,6 +1561,7 @@
                 document.getElementById('feedback-list-panel').style.gridColumn = 'span 2';
 
                 document.getElementById('dash-filter-panel').style.display = 'none';
+                document.getElementById('team-roster-panel').style.display = 'none';
             } else {
                 // Admin or Manager
                 // They don't log personal hours, so hide Daily Tracker and Skills Log navigation tabs
@@ -1546,6 +1577,7 @@
 
                 // Show Admin Overview filter panel on Dashboard
                 document.getElementById('dash-filter-panel').style.display = 'block';
+                document.getElementById('team-roster-panel').style.display = 'block';
             }
 
             // Populate assignment select options dynamically
@@ -1592,6 +1624,8 @@
                         }
                     }
                 });
+
+                renderTeamRoster();
 
             } catch (err) {
                 console.error("Failed to load user rosters for dropdowns", err);
@@ -1765,12 +1799,24 @@
             const tbody = document.getElementById('logs-table-body');
             tbody.innerHTML = '';
             if (state.logs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No activity logs entered.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No activity logs entered.</td></tr>';
                 return;
             }
             state.logs.forEach(log => {
                 const userObj = activeUsers.find(u => u.username === log.intern_name);
                 const displayName = userObj ? userObj.full_name : log.intern_name;
+
+                // Interns/Employees can edit/delete their own logs. Admins/Managers can edit/delete any log.
+                const canEditDelete = currentUser.role === 'Admin' || currentUser.role === 'Manager' || log.intern_name === currentUser.username;
+                let actionButtons = '';
+                if (canEditDelete) {
+                    actionButtons = `
+                        <button onclick="editLog('${log.id}')" class="btn-action edit" title="Edit Log" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 5px 8px; border-radius: 4px; border: none; cursor: pointer; margin-right: 4px;"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteLog('${log.id}')" class="btn-action delete" title="Delete Log" style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 5px 8px; border-radius: 4px; border: none; cursor: pointer;"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                } else {
+                    actionButtons = `<span style="color:var(--text-muted); font-size:11px;">No Actions</span>`;
+                }
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -1784,6 +1830,7 @@
                         ${log.blockers && log.blockers !== 'None' && log.blockers !== '' ? `<div style="color:var(--danger); font-size:12px; margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(log.blockers)}</div>` : ''}
                     </td>
                     <td><span class="badge ${log.deliverable_completed === 'Yes' ? 'badge-success' : 'badge-warning'}">${log.deliverable_completed || 'No'}</span></td>
+                    <td style="text-align: center; white-space: nowrap;">${actionButtons}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -2101,23 +2148,127 @@
                 notes: document.getElementById('log_notes').value || ''
             };
 
+            // If Admin/Manager is logging on behalf, supply target username
+            const behalfSelect = document.getElementById('log_intern_name');
+            if (behalfSelect && behalfSelect.style.display !== 'none' && behalfSelect.value) {
+                payload.intern_name = behalfSelect.value;
+            }
+
             try {
-                const res = await apiFetch('/submit', {
-                    method: 'POST',
+                let url = '/submit';
+                let method = 'POST';
+                if (editingLogId) {
+                    url = `/logs/${editingLogId}`;
+                    method = 'PUT';
+                }
+
+                const res = await apiFetch(url, {
+                    method: method,
                     body: payload
                 });
+                
                 if (res.ok) {
-                    showToast("Daily log saved!", "success");
-                    this.reset();
-                    document.getElementById('log_date').value = todayStr;
+                    showToast(editingLogId ? "Daily log entry updated!" : "Daily log saved!", "success");
+                    cancelEditLog(); // Reset form and states
                     fetchData();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Failed to save daily log", "error");
                 }
             } catch (err) {
-                // Handled by apiFetch redirection
+                showToast("Failed to reach daily log endpoint", "error");
             } finally {
                 submitBtn.disabled = false;
             }
         });
+
+        // Edit Log Handler
+        function editLog(logId) {
+            const log = state.logs.find(l => l.id === logId);
+            if (!log) return;
+
+            editingLogId = logId;
+            
+            // Populate form fields
+            document.getElementById('log_date').value = log.date_logged;
+            document.getElementById('log_hours').value = Math.round(log.hours_worked).toString();
+            document.getElementById('log_checkin').value = log.check_in || "09:00";
+            document.getElementById('log_checkout').value = log.check_out || "18:00";
+            document.getElementById('log_category').value = log.task_category || "Other";
+            document.getElementById('log_tasks').value = log.tasks_completed;
+            document.getElementById('log_deliverable').value = log.deliverable_completed || "No";
+            document.getElementById('log_blockers').value = log.blockers || "None";
+            document.getElementById('log_skills').value = log.skills_used || "";
+            document.getElementById('log_notes').value = log.notes || "";
+
+            // Populate mood rating buttons
+            document.querySelectorAll('#log_mood_group .rating-btn').forEach(btn => {
+                if (parseInt(btn.dataset.value) === parseInt(log.mood || 5)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Adjust buttons UI
+            document.getElementById('btn-save-log').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Log Entry';
+            document.getElementById('btn-cancel-edit-log').style.display = 'block';
+
+            // Scroll to the daily log form panel for visibility
+            document.getElementById('logForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Cancel Edit Log
+        function cancelEditLog() {
+            editingLogId = null;
+            document.getElementById('logForm').reset();
+            document.getElementById('log_date').value = todayStr; // reset date to today
+            document.getElementById('btn-save-log').innerHTML = '<i class="fa-solid fa-paper-plane"></i> Save Daily Log';
+            document.getElementById('btn-cancel-edit-log').style.display = 'none';
+        }
+
+        // Delete Log Handler
+        async function deleteLog(logId) {
+            if (!confirm("Are you sure you want to delete this daily log entry?")) return;
+            try {
+                const res = await apiFetch(`/logs/${logId}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    showToast("Daily log entry deleted.");
+                    fetchData();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Failed to delete log entry", "error");
+                }
+            } catch (err) {
+                showToast("Failed to delete log entry", "error");
+            }
+        }
+
+        // Remove User Handler (Admin/Manager only)
+        async function removeUser(userId, fullName) {
+            if (!confirm(`Are you sure you want to completely remove ${fullName} from the portal? This will also delete all their tasks, logs, skills, and feedback.`)) return;
+            try {
+                const res = await apiFetch(`/users/${userId}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    showToast(`User ${fullName} removed successfully!`);
+                    
+                    // Re-populate dropdowns and reload rosters
+                    await populateDropdowns(); 
+                    
+                    // Refresh data in other tabs
+                    fetchData();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Failed to remove user", "error");
+                }
+            } catch (err) {
+                showToast("Failed to remove user", "error");
+            }
+        }
 
         // Form Submit: Create Project Task
         document.getElementById('taskForm').addEventListener('submit', async function(e) {
