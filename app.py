@@ -51,6 +51,31 @@ def serialize(doc):
         del doc['_id']
     return doc
 
+def validate_log_date(date_str):
+    if not date_str:
+        return "Log date is required"
+    try:
+        log_dt = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+        today_dt = datetime.date.today()
+        yesterday_dt = today_dt - datetime.timedelta(days=1)
+        if log_dt < yesterday_dt or log_dt > today_dt:
+            return "Daily log date must be yesterday or today."
+    except ValueError:
+        return "Invalid log date format. Expected YYYY-MM-DD"
+    return None
+
+def validate_future_or_today_date(date_str, field_name):
+    if not date_str:
+        return None
+    try:
+        dt = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
+        today_dt = datetime.date.today()
+        if dt < today_dt:
+            return f"{field_name} cannot be in the past"
+    except ValueError:
+        return f"Invalid {field_name} format. Expected YYYY-MM-DD"
+    return None
+
 # ----------------- AUTHENTICATION MIDDLEWARE HELPERS -----------------
 def get_logged_in_user():
     user_id = session.get('user_id')
@@ -357,6 +382,10 @@ def submit_log():
     if not date or hours is None or not tasks:
         return jsonify({"error": "Missing required fields (date_logged, hours_worked, tasks_completed)"}), 400
 
+    date_err = validate_log_date(date)
+    if date_err:
+        return jsonify({"error": date_err}), 400
+
     try:
         hours = float(hours)
         mood = int(mood)
@@ -420,6 +449,10 @@ def update_log(log_id):
 
     if not date or hours is None or not tasks:
         return jsonify({"error": "Missing required fields (date_logged, hours_worked, tasks_completed)"}), 400
+
+    date_err = validate_log_date(date)
+    if date_err:
+        return jsonify({"error": date_err}), 400
 
     try:
         hours = float(hours)
@@ -515,6 +548,10 @@ def add_task():
 
     if not target_username or not task_name or not assigned_date:
         return jsonify({"error": "Missing required fields (intern_name, task_name, assigned_date)"}), 400
+
+    due_date_err = validate_future_or_today_date(due_date, "Due date")
+    if due_date_err:
+        return jsonify({"error": due_date_err}), 400
 
     # Role check: Employees can ONLY assign tasks to Interns.
     target_user = db.users.find_one({"username": target_username})
@@ -765,6 +802,10 @@ def add_feedback():
 
     if not target_username or not date or not feedback_type or not summary:
         return jsonify({"error": "Missing required fields (intern_name, date_logged, type, feedback_summary)"}), 400
+
+    follow_up_err = validate_future_or_today_date(follow_up_date, "Follow-up date")
+    if follow_up_err:
+        return jsonify({"error": follow_up_err}), 400
 
     target_user = db.users.find_one({"username": target_username})
     if not target_user:

@@ -1664,11 +1664,29 @@
         });
 
         // Initialize Forms Dates
-        const todayStr = new Date().toISOString().split('T')[0];
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yestYear = yesterday.getFullYear();
+        const yestMonth = String(yesterday.getMonth() + 1).padStart(2, '0');
+        const yestDay = String(yesterday.getDate()).padStart(2, '0');
+        const yesterdayStr = `${yestYear}-${yestMonth}-${yestDay}`;
+
         document.getElementById('log_date').value = todayStr;
+        document.getElementById('log_date').min = yesterdayStr;
+        document.getElementById('log_date').max = todayStr;
         document.getElementById('task_due').value = todayStr;
         document.getElementById('task_due').min = todayStr; // Prevent selecting past dates
         document.getElementById('fb_date').value = todayStr;
+        const fbFollowDateInput = document.getElementById('fb_followdate');
+        if (fbFollowDateInput) {
+            fbFollowDateInput.min = todayStr; // Prevent selecting past dates
+        }
 
         // Custom Mood Rating Selection Handler
         document.querySelectorAll('#log_mood_group .rating-btn').forEach(btn => {
@@ -2744,9 +2762,29 @@
             const submitBtn = this.querySelector('.btn-submit');
             submitBtn.disabled = true;
 
+            const selectedLogDate = document.getElementById('log_date').value;
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const localTodayStr = `${year}-${month}-${day}`;
+
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yestYear = yesterday.getFullYear();
+            const yestMonth = String(yesterday.getMonth() + 1).padStart(2, '0');
+            const yestDay = String(yesterday.getDate()).padStart(2, '0');
+            const localYesterdayStr = `${yestYear}-${yestMonth}-${yestDay}`;
+
+            if (selectedLogDate && (selectedLogDate < localYesterdayStr || selectedLogDate > localTodayStr)) {
+                showToast("Daily log date must be yesterday or today.", "error");
+                submitBtn.disabled = false;
+                return;
+            }
+
             const selectedMood = document.querySelector('#log_mood_group .rating-btn.active').dataset.value;
             const payload = {
-                date_logged: document.getElementById('log_date').value,
+                date_logged: selectedLogDate,
                 hours_worked: parseFloat(document.getElementById('log_hours').value),
                 check_in: document.getElementById('log_checkin').value,
                 check_out: document.getElementById('log_checkout').value,
@@ -2887,12 +2925,25 @@
             const submitBtn = this.querySelector('.btn-submit');
             submitBtn.disabled = true;
 
+            const selectedDueDate = document.getElementById('task_due').value;
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const localTodayStr = `${year}-${month}-${day}`;
+
+            if (selectedDueDate && selectedDueDate < localTodayStr) {
+                showToast("Due date cannot be in the past!", "error");
+                submitBtn.disabled = false;
+                return;
+            }
+
             const payload = {
                 intern_name: document.getElementById('task_intern_name').value,
                 task_name: document.getElementById('task_name').value,
                 category: document.getElementById('task_category').value,
-                assigned_date: new Date().toISOString().split('T')[0],
-                due_date: document.getElementById('task_due').value,
+                assigned_date: localTodayStr,
+                due_date: selectedDueDate,
                 priority: document.getElementById('task_priority').value,
                 status: 'Not Started',
                 percent_done: 0,
@@ -2958,6 +3009,19 @@
             const submitBtn = this.querySelector('.btn-submit');
             submitBtn.disabled = true;
 
+            const selectedFollowUpDate = document.getElementById('fb_followdate').value;
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const localTodayStr = `${year}-${month}-${day}`;
+
+            if (selectedFollowUpDate && selectedFollowUpDate < localTodayStr) {
+                showToast("Follow-up date cannot be in the past!", "error");
+                submitBtn.disabled = false;
+                return;
+            }
+
             const payload = {
                 intern_name: document.getElementById('fb_intern_name').value,
                 date_logged: document.getElementById('fb_date').value,
@@ -2967,7 +3031,7 @@
                 area_to_improve: document.getElementById('fb_improve').value || '',
                 action_taken: document.getElementById('fb_action').value || '',
                 follow_up: document.getElementById('fb_followup').value,
-                follow_up_date: document.getElementById('fb_followdate').value || ''
+                follow_up_date: selectedFollowUpDate || ''
             };
 
             try {
