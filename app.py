@@ -184,6 +184,15 @@ def login():
     session['role'] = user['role']
     session['full_name'] = user['full_name']
 
+    # Close any orphaned active sessions for this user
+    try:
+        db.session_logs.update_many(
+            {"username": user['username'], "logout_time": None},
+            {"$set": {"logout_time": datetime.datetime.utcnow()}}
+        )
+    except Exception as e:
+        print(f"Failed to close orphaned sessions: {e}")
+
     # Record login activity log
     try:
         db.session_logs.insert_one({
@@ -211,17 +220,13 @@ def logout():
     user = get_logged_in_user()
     if user:
         try:
-            # Find the latest active session for this user and set logout_time
-            latest_sess = db.session_logs.find_one(
+            # Close all active open sessions for this user
+            res = db.session_logs.update_many(
                 {"username": user['username'], "logout_time": None},
-                sort=[("login_time", pymongo.DESCENDING)]
+                {"$set": {"logout_time": datetime.datetime.utcnow()}}
             )
-            if latest_sess:
-                db.session_logs.update_one(
-                    {"_id": latest_sess["_id"]},
-                    {"$set": {"logout_time": datetime.datetime.utcnow()}}
-                )
-            else:
+            # If no sessions were modified, fallback to updating the latest session's logout time
+            if res.modified_count == 0:
                 latest_any = db.session_logs.find_one(
                     {"username": user['username']},
                     sort=[("login_time", pymongo.DESCENDING)]
@@ -268,15 +273,21 @@ def get_users():
     # Fetch users
     users = list(db.users.find(query).sort("full_name", 1))
     
-    # Check session presence status based on the latest login log
     for u in users:
         latest_session = db.session_logs.find_one(
             {"username": u['username']},
             sort=[("login_time", pymongo.DESCENDING)]
         )
-        if latest_session and latest_session.get("logout_time") is None:
-            u['status'] = "Available"
+        if latest_session:
+            u['last_login'] = latest_session.get('login_time')
+            u['last_logout'] = latest_session.get('logout_time')
+            if latest_session.get("logout_time") is None:
+                u['status'] = "Available"
+            else:
+                u['status'] = "Logged Out"
         else:
+            u['last_login'] = None
+            u['last_logout'] = None
             u['status'] = "Logged Out"
 
     return jsonify(serialize(users))

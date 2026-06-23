@@ -1139,18 +1139,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="log_hours">Hours Worked</label>
-                                    <select id="log_hours" required>
-                                        <option value="1">1 Hour</option>
-                                        <option value="2">2 Hours</option>
-                                        <option value="3">3 Hours</option>
-                                        <option value="4">4 Hours</option>
-                                        <option value="5">5 Hours</option>
-                                        <option value="6">6 Hours</option>
-                                        <option value="7">7 Hours</option>
-                                        <option value="8">8 Hours</option>
-                                        <option value="9">9 Hours</option>
-                                        <option value="10">10 Hours</option>
-                                    </select>
+                                    <input type="number" id="log_hours" step="0.5" min="0.5" max="24" required>
                                 </div>
                             </div>
 
@@ -2000,9 +1989,18 @@
 
                 // Render status badge
                 const isOnline = u.status === 'Available';
-                const statusBadgeHtml = `<span class="badge ${isOnline ? 'badge-success' : 'badge-primary'}" style="${isOnline ? '' : 'opacity: 0.6;'}">
-                    <i class="fa-solid ${isOnline ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${u.status || 'Logged Out'}
-                </span>`;
+                let timeDetailHtml = '';
+                if (isOnline && u.last_login) {
+                    timeDetailHtml = `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Active: ${formatSessionTime(u.last_login)}</div>`;
+                } else if (!isOnline && u.last_logout) {
+                    timeDetailHtml = `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Logout: ${formatSessionTime(u.last_logout)}</div>`;
+                }
+                const statusBadgeHtml = `
+                    <span class="badge ${isOnline ? 'badge-success' : 'badge-primary'}" style="${isOnline ? '' : 'opacity: 0.6;'}">
+                        <i class="fa-solid ${isOnline ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${u.status || 'Logged Out'}
+                    </span>
+                    ${timeDetailHtml}
+                `;
 
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${escapeHTML(u.full_name)}</td>
@@ -2240,9 +2238,18 @@
                             const totTasks = userTasks.length;
 
                             const isOnline = u.status === 'Available';
-                            const statusBadge = `<span class="badge ${isOnline ? 'badge-success' : 'badge-primary'}" style="${isOnline ? '' : 'opacity: 0.6;'}">
-                                <i class="fa-solid ${isOnline ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${u.status || 'Logged Out'}
-                            </span>`;
+                            let timeDetail = '';
+                            if (isOnline && u.last_login) {
+                                timeDetail = `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Active: ${formatSessionTime(u.last_login)}</div>`;
+                            } else if (!isOnline && u.last_logout) {
+                                timeDetail = `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Logout: ${formatSessionTime(u.last_logout)}</div>`;
+                            }
+                            const statusBadge = `
+                                <span class="badge ${isOnline ? 'badge-success' : 'badge-primary'}" style="${isOnline ? '' : 'opacity: 0.6;'}">
+                                    <i class="fa-solid ${isOnline ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${u.status || 'Logged Out'}
+                                </span>
+                                ${timeDetail}
+                            `;
 
                             let roleBadgeClass = 'badge-primary';
                             if (u.role === 'Manager') roleBadgeClass = 'badge-warning';
@@ -2452,6 +2459,23 @@
             if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
             
             return parts.join(' ');
+        }
+
+        function formatSessionTime(isoStr) {
+            if (!isoStr) return '-';
+            const date = new Date(isoStr);
+            const today = new Date();
+            const isToday = date.getDate() === today.getDate() &&
+                            date.getMonth() === today.getMonth() &&
+                            date.getFullYear() === today.getFullYear();
+            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (isToday) {
+                return `Today at ${timeStr}`;
+            } else {
+                const month = date.toLocaleDateString([], { month: 'short' });
+                const day = date.getDate();
+                return `${month} ${day}, ${timeStr}`;
+            }
         }
 
         // Render Skills table list
@@ -2755,9 +2779,10 @@
             }
 
             const diffHours = diffMin / 60;
-            const roundedHours = Math.min(Math.max(Math.round(diffHours), 1), 10);
+            // Round to the nearest 0.5 hours (e.g. 8.25 becomes 8.5) and clamp between 0.5 and 24
+            const finalHours = Math.min(Math.max(Math.round(diffHours * 2) / 2, 0.5), 24);
             
-            document.getElementById('log_hours').value = roundedHours.toString();
+            document.getElementById('log_hours').value = finalHours;
         }
 
         document.getElementById('log_checkin').addEventListener('change', autoCalculateHours);
@@ -2931,7 +2956,7 @@
             
             // Populate form fields
             document.getElementById('log_date').value = log.date_logged;
-            document.getElementById('log_hours').value = Math.round(log.hours_worked).toString();
+            document.getElementById('log_hours').value = log.hours_worked;
             document.getElementById('log_checkin').value = log.check_in || "09:00";
             document.getElementById('log_checkout').value = log.check_out || "18:00";
             document.getElementById('log_category').value = log.task_category || "Other";
