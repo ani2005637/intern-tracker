@@ -217,8 +217,8 @@ def delete_user(user_id):
     user_weight = role_weights.get(user['role'], 0)
     target_weight = role_weights.get(target_user['role'], 0)
 
-    # Enforce hierarchical access control: Rank(A) > Rank(B)
-    if user_weight <= target_weight:
+    # Enforce hierarchical access control: Rank(A) > Rank(B) (Bypassed for Admin)
+    if user['role'] != 'Admin' and user_weight <= target_weight:
         return jsonify({"error": "Forbidden: You can only remove users with a lower role rank than yours"}), 403
 
     try:

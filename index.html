@@ -1590,7 +1590,7 @@
                 const res = await apiFetch('/users');
                 activeUsers = await res.json();
 
-                // 1. Dashboard Filter options (Interns + Employees)
+                // 1. Dashboard Filter options (Interns + Employees + Managers for Admin)
                 const dashFilter = document.getElementById('dash-user-filter');
                 dashFilter.innerHTML = '<option value="ALL">All Active Users</option>';
                 
@@ -1603,21 +1603,34 @@
                 fbSelect.innerHTML = '<option value="">Choose target user...</option>';
 
                 activeUsers.forEach(u => {
-                    // Filter options: Manager can assign tasks to Employees/Interns. Employees only to Interns.
                     const optionHtml = `<option value="${u.username}">${escapeHTML(u.full_name)} (${u.role})</option>`;
                     
-                    if (u.role === 'Intern' || u.role === 'Employee') {
-                        dashFilter.innerHTML += optionHtml;
+                    // Dashboard filter population based on user role
+                    if (currentUser.role === 'Admin') {
+                        if (u.role === 'Manager' || u.role === 'Employee' || u.role === 'Intern') {
+                            dashFilter.innerHTML += optionHtml;
+                        }
+                    } else if (currentUser.role === 'Manager') {
+                        if (u.role === 'Employee' || u.role === 'Intern') {
+                            dashFilter.innerHTML += optionHtml;
+                        }
                     }
 
-                    if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
-                        // Manager/Admin can assign to Employees/Interns
+                    // Task assignment & Feedback target dropdown population based on user role
+                    if (currentUser.role === 'Admin') {
+                        // Admin can assign to Manager, Employee, Intern
+                        if (u.role === 'Manager' || u.role === 'Employee' || u.role === 'Intern') {
+                            taskSelect.innerHTML += optionHtml;
+                            fbSelect.innerHTML += optionHtml;
+                        }
+                    } else if (currentUser.role === 'Manager') {
+                        // Manager can assign to Employee, Intern
                         if (u.role === 'Employee' || u.role === 'Intern') {
                             taskSelect.innerHTML += optionHtml;
                             fbSelect.innerHTML += optionHtml;
                         }
                     } else if (currentUser.role === 'Employee') {
-                        // Employees can only assign/log feedback for Interns
+                        // Employee can assign to Intern only
                         if (u.role === 'Intern') {
                             taskSelect.innerHTML += optionHtml;
                             fbSelect.innerHTML += optionHtml;
@@ -1630,6 +1643,69 @@
             } catch (err) {
                 console.error("Failed to load user rosters for dropdowns", err);
             }
+        }
+
+        // Render the Team Roster & User Management Table
+        function renderTeamRoster() {
+            const tbody = document.getElementById('team-roster-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            activeUsers.forEach(u => {
+                // Determine visibility in roster: Admin sees all users. Manager sees Employees and Interns.
+                let visible = false;
+                if (currentUser.role === 'Admin') {
+                    visible = true;
+                } else if (currentUser.role === 'Manager') {
+                    if (u.role === 'Employee' || u.role === 'Intern') {
+                        visible = true;
+                    }
+                }
+
+                if (!visible) return;
+
+                const tr = document.createElement('tr');
+                
+                // Set actions (Delete button or label)
+                let actionHtml = '';
+                if (u.username === currentUser.username) {
+                    actionHtml = `<span style="color: var(--text-muted); font-size: 13px; font-style: italic;">(You)</span>`;
+                } else {
+                    let canDelete = false;
+                    if (currentUser.role === 'Admin') {
+                        canDelete = true; // Admin can delete any other user
+                    } else if (currentUser.role === 'Manager') {
+                        if (u.role === 'Employee' || u.role === 'Intern') {
+                            canDelete = true; // Manager can delete Employee and Intern
+                        }
+                    }
+
+                    if (canDelete) {
+                        actionHtml = `
+                            <button class="btn btn-danger btn-sm" onclick="removeUser('${u.id}', '${escapeHTML(u.full_name)}')">
+                                <i class="fa-solid fa-trash-can"></i> Remove
+                            </button>
+                        `;
+                    } else {
+                        actionHtml = `<span style="color: var(--text-muted); font-size: 13px;">No Access</span>`;
+                    }
+                }
+
+                // Render role badges
+                let badgeClass = 'badge-primary';
+                if (u.role === 'Admin') badgeClass = 'badge-danger';
+                else if (u.role === 'Manager') badgeClass = 'badge-warning';
+                else if (u.role === 'Employee') badgeClass = 'badge-primary';
+                else if (u.role === 'Intern') badgeClass = 'badge-success';
+
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${escapeHTML(u.full_name)}</td>
+                    <td>${escapeHTML(u.username)}</td>
+                    <td><span class="badge ${badgeClass}">${u.role}</span></td>
+                    <td style="text-align: center;">${actionHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
 
         // Fetch logs, tasks, skills, feedback
@@ -2021,6 +2097,21 @@
                 showAuthOverlay();
             }
         }
+
+        // Periodically verify session authentication status (forces re-login if deleted by Admin)
+        setInterval(async () => {
+            if (currentUser) {
+                try {
+                    const res = await fetch(`${API_URL}/current_user`, { credentials: 'include' });
+                    if (res.status === 401) {
+                        currentUser = null;
+                        showAuthOverlay();
+                    }
+                } catch (err) {
+                    console.error("Session verification failed", err);
+                }
+            }
+        }, 5000);
 
         // Automatically calculate hours from check-in/out
         function autoCalculateHours() {
