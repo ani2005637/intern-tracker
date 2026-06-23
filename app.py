@@ -24,6 +24,20 @@ print("Connecting to MongoDB Atlas web service...")
 client = pymongo.MongoClient(mongo_uri)
 db = client['intern_tracker']
 
+# Create indexes for high-performance data retrieval
+print("Ensuring database indexes exist for fast loading...")
+try:
+    db.session_logs.create_index([("username", pymongo.ASCENDING), ("login_time", pymongo.DESCENDING)])
+    db.tasks.create_index([("intern_name", pymongo.ASCENDING)])
+    db.tasks.create_index([("assigned_by", pymongo.ASCENDING)])
+    db.intern_logs.create_index([("intern_name", pymongo.ASCENDING), ("date_logged", pymongo.DESCENDING)])
+    db.skills_log.create_index([("intern_name", pymongo.ASCENDING)])
+    db.mentor_feedback.create_index([("intern_name", pymongo.ASCENDING)])
+    db.notifications.create_index([("username", pymongo.ASCENDING), ("created_at", pymongo.DESCENDING)])
+    print("Database indexes created/verified.")
+except Exception as ie:
+    print(f"Warning: Failed to ensure database indexes: {ie}")
+
 # Helper to serialize MongoDB documents (converting ObjectId to string 'id')
 def serialize(doc):
     if doc is None:
@@ -530,6 +544,19 @@ def add_task():
             "started_at": None,
             "completed_at": None
         })
+        
+        # Create notification for target user
+        try:
+            db.notifications.insert_one({
+                "username": target_username,
+                "message": f"New task assigned by {user['full_name']}: '{task_name}'",
+                "type": "task_assignment",
+                "created_at": datetime.datetime.utcnow(),
+                "read": False
+            })
+        except Exception as ne:
+            print(f"Failed to create notification: {ne}")
+            
     except Exception as e:
         return jsonify({"error": f"Task creation failed: {str(e)}"}), 500
 
@@ -769,6 +796,47 @@ def add_feedback():
         return jsonify({"error": f"Feedback submission failed: {str(e)}"}), 500
 
     return jsonify({"message": "Mentor feedback logged successfully!"}), 201
+
+
+# ----------------- NOTIFICATIONS API ENDPOINTS -----------------
+@app.route('/notifications', methods=['GET'])
+def get_notifications():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    notifications = list(db.notifications.find({"username": user['username']}).sort("created_at", -1).limit(20))
+    return jsonify(serialize(notifications))
+
+
+@app.route('/notifications/read', methods=['POST'])
+def mark_all_notifications_read():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db.notifications.update_many(
+        {"username": user['username'], "read": False},
+        {"$set": {"read": True}}
+    )
+    return jsonify({"message": "All notifications marked as read"})
+
+
+@app.route('/notifications/<notif_id>/read', methods=['POST'])
+def mark_notification_read(notif_id):
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        db.notifications.update_one(
+            {"_id": ObjectId(notif_id), "username": user['username']},
+            {"$set": {"read": True}}
+        )
+    except Exception:
+        return jsonify({"error": "Invalid notification ID"}), 400
+        
+    return jsonify({"message": "Notification marked as read"})
 
 
 if __name__ == '__main__':

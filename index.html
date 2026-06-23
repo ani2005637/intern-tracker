@@ -866,9 +866,28 @@
                     <h2 id="tab-title">Internship Dashboard</h2>
                     <p id="tab-subtitle" style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Dynamic Summary Analytics</p>
                 </div>
-                <div class="status-pill">
-                    <span class="status-dot"></span>
-                    <span>Database Connected</span>
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <!-- Notification Bell Container -->
+                    <div class="notification-bell-container" id="notif-bell-container" onclick="toggleNotifDropdown(event)" style="position: relative; cursor: pointer;">
+                        <i class="fa-solid fa-bell" style="font-size: 18px; color: var(--text-muted); transition: color 0.2s;"></i>
+                        <span class="notif-badge" id="notif-badge" style="display: none; position: absolute; top: -8px; right: -8px; background: var(--danger); color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--panel-bg);">0</span>
+                        
+                        <!-- Dropdown list -->
+                        <div class="notif-dropdown" id="notif-dropdown" style="display: none; position: absolute; top: 32px; right: 0; width: 280px; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 1000; padding: 12px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);" onclick="event.stopPropagation()">
+                            <div style="font-weight: 600; font-size: 13px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Notifications</span>
+                                <button onclick="markAllNotificationsRead(event)" style="background: none; border: none; color: var(--primary); font-size: 11px; cursor: pointer; font-weight: 600;">Mark all read</button>
+                            </div>
+                            <div id="notif-list-container" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                                <div style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 16px 0;">No new notifications.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="status-pill">
+                        <span class="status-dot"></span>
+                        <span>Database Connected</span>
+                    </div>
                 </div>
             </header>
 
@@ -1521,7 +1540,8 @@
             logs: [],
             tasks: [],
             skills: [],
-            feedback: []
+            feedback: [],
+            notifications: []
         };
 
         const START_DATE = new Date("2026-06-22");
@@ -1746,16 +1766,23 @@
                 const res = await apiFetch('/users');
                 activeUsers = await res.json();
 
-                // 1. Dashboard Filter options (Interns + Employees + Managers for Admin)
+                // Save currently selected values before rebuilding
                 const dashFilter = document.getElementById('dash-user-filter');
+                const previousDashVal = dashFilter ? dashFilter.value : 'ALL';
+
+                const taskSelect = document.getElementById('task_intern_name');
+                const previousTaskVal = taskSelect ? taskSelect.value : '';
+
+                const fbSelect = document.getElementById('fb_intern_name');
+                const previousFbVal = fbSelect ? fbSelect.value : '';
+
+                // 1. Dashboard Filter options (Interns + Employees + Managers for Admin)
                 dashFilter.innerHTML = '<option value="ALL">All Active Users</option>';
                 
                 // 2. Task Assign To selector
-                const taskSelect = document.getElementById('task_intern_name');
                 taskSelect.innerHTML = '<option value="">Choose target user...</option>';
 
                 // 3. Feedback Target selector
-                const fbSelect = document.getElementById('fb_intern_name');
                 fbSelect.innerHTML = '<option value="">Choose target user...</option>';
 
                 activeUsers.forEach(u => {
@@ -1793,6 +1820,27 @@
                         }
                     }
                 });
+
+                // Restore previous selections
+                if (dashFilter) {
+                    dashFilter.value = previousDashVal;
+                    if (dashFilter.value !== previousDashVal) {
+                        // Attempt case-insensitive/trimmed match to prevent resetting when username casing differs
+                        let found = false;
+                        for (let i = 0; i < dashFilter.options.length; i++) {
+                            if (dashFilter.options[i].value.toLowerCase().trim() === previousDashVal.toLowerCase().trim()) {
+                                dashFilter.value = dashFilter.options[i].value;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            dashFilter.value = 'ALL';
+                        }
+                    }
+                }
+                if (taskSelect) taskSelect.value = previousTaskVal;
+                if (fbSelect) fbSelect.value = previousFbVal;
 
                 renderTeamRoster();
 
@@ -1861,8 +1909,8 @@
                     const feedbackReviews = state.feedback.filter(f => f.feedback_from === u.username).length;
                     activityHtml = `<span style="font-size:12px; color:var(--text-muted);">Assigned: ${assignedTasks} tasks, ${feedbackReviews} reviews</span>`;
                 } else if (u.role === 'Intern') {
-                    const myTasks = state.tasks.filter(t => t.intern_name === u.username).length;
-                    const loggedHours = state.logs.filter(l => l.intern_name === u.username).length;
+                    const myTasks = state.tasks.filter(t => t.intern_name && t.intern_name.toLowerCase().trim() === u.username.toLowerCase().trim()).length;
+                    const loggedHours = state.logs.filter(l => l.intern_name && l.intern_name.toLowerCase().trim() === u.username.toLowerCase().trim()).length;
                     activityHtml = `<span style="font-size:12px; color:var(--text-muted);">${myTasks} tasks, ${loggedHours} logs</span>`;
                 }
 
@@ -1907,20 +1955,45 @@
             renderTasks();
         }
 
-        // Fetch logs, tasks, skills, feedback
+        // Fetch logs, tasks, skills, feedback in parallel to optimize speed and resolve latency
         async function fetchData() {
             try {
-                const resLogs = await apiFetch('/logs');
-                state.logs = await resLogs.json();
+                const promises = [
+                    apiFetch('/logs').then(r => r.json()),
+                    apiFetch('/tasks').then(r => r.json()),
+                    apiFetch('/skills').then(r => r.json()),
+                    apiFetch('/feedback').then(r => r.json()),
+                    apiFetch('/notifications').then(r => r.json())
+                ];
 
-                const resTasks = await apiFetch('/tasks');
-                state.tasks = await resTasks.json();
+                if (currentUser.role === 'Admin') {
+                    promises.push(apiFetch('/session_logs').then(r => r.json()));
+                }
 
-                const resSkills = await apiFetch('/skills');
-                state.skills = await resSkills.json();
+                const results = await Promise.all(promises);
+                
+                state.logs = results[0];
+                state.tasks = results[1];
+                state.skills = results[2];
+                state.feedback = results[3];
+                
+                const newNotifs = results[4];
+                // Show toasts for new notifications if not the initial load
+                if (state.notifications && state.notifications.length > 0) {
+                    newNotifs.forEach(notif => {
+                        if (!notif.read) {
+                            const alreadyKnown = state.notifications.find(n => n.id === notif.id);
+                            if (!alreadyKnown) {
+                                showToast(notif.message, "info");
+                            }
+                        }
+                    });
+                }
+                state.notifications = newNotifs;
 
-                const resFeedback = await apiFetch('/feedback');
-                state.feedback = await resFeedback.json();
+                if (currentUser.role === 'Admin') {
+                    state.sessionLogs = results[5];
+                }
 
                 // Render views
                 renderDashboard();
@@ -1928,15 +2001,10 @@
                 renderTasks();
                 renderSkills();
                 renderFeedback();
+                renderNotifications();
 
                 if (currentUser.role === 'Admin') {
-                    try {
-                        const resSessionLogs = await apiFetch('/session_logs');
-                        state.sessionLogs = await resSessionLogs.json();
-                        renderSessionLogs();
-                    } catch (err) {
-                        console.error("Failed to load session logs", err);
-                    }
+                    renderSessionLogs();
                 }
 
             } catch (err) {
@@ -1954,9 +2022,9 @@
             if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
                 const userVal = document.getElementById('dash-user-filter').value;
                 if (userVal !== 'ALL') {
-                    filteredLogs = filteredLogs.filter(l => l.intern_name === userVal);
-                    filteredTasks = filteredTasks.filter(t => t.intern_name === userVal);
-                    filteredSkills = filteredSkills.filter(s => s.intern_name === userVal);
+                    filteredLogs = filteredLogs.filter(l => l.intern_name && l.intern_name.toLowerCase().trim() === userVal.toLowerCase().trim());
+                    filteredTasks = filteredTasks.filter(t => t.intern_name && t.intern_name.toLowerCase().trim() === userVal.toLowerCase().trim());
+                    filteredSkills = filteredSkills.filter(s => s.intern_name && s.intern_name.toLowerCase().trim() === userVal.toLowerCase().trim());
                 }
             }
 
@@ -2061,7 +2129,7 @@
                     else if (moodVal >= 3) fillCol = 'var(--warning)';
 
                     // Find full name from username mapping
-                    const userObj = activeUsers.find(u => u.username === log.intern_name);
+                    const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
                     const displayName = userObj ? userObj.full_name : log.intern_name;
 
                     const tr = document.createElement('tr');
@@ -2088,11 +2156,11 @@
                 return;
             }
             state.logs.forEach(log => {
-                const userObj = activeUsers.find(u => u.username === log.intern_name);
+                const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
                 const displayName = userObj ? userObj.full_name : log.intern_name;
 
                 // Interns/Employees can edit/delete their own logs. Admins/Managers can edit/delete any log.
-                const canEditDelete = currentUser.role === 'Admin' || currentUser.role === 'Manager' || log.intern_name === currentUser.username;
+                const canEditDelete = currentUser.role === 'Admin' || currentUser.role === 'Manager' || (log.intern_name && log.intern_name.toLowerCase().trim() === currentUser.username.toLowerCase().trim());
                 let actionButtons = '';
                 if (canEditDelete) {
                     actionButtons = `
@@ -2130,9 +2198,9 @@
             let tasksToRender = [...state.tasks];
             if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
                 if (currentTaskView === 'my') {
-                    tasksToRender = tasksToRender.filter(t => t.intern_name === currentUser.username);
+                    tasksToRender = tasksToRender.filter(t => t.intern_name && t.intern_name.toLowerCase().trim() === currentUser.username.toLowerCase().trim());
                 } else {
-                    tasksToRender = tasksToRender.filter(t => t.intern_name !== currentUser.username);
+                    tasksToRender = tasksToRender.filter(t => !t.intern_name || t.intern_name.toLowerCase().trim() !== currentUser.username.toLowerCase().trim());
                 }
             }
 
@@ -2142,10 +2210,10 @@
             }
 
             tasksToRender.forEach(t => {
-                const targetUserObj = activeUsers.find(u => u.username === t.intern_name);
+                const targetUserObj = activeUsers.find(u => u.username.toLowerCase().trim() === (t.intern_name || '').toLowerCase().trim());
                 const targetName = targetUserObj ? targetUserObj.full_name : t.intern_name;
 
-                const assignerObj = activeUsers.find(u => u.username === t.assigned_by);
+                const assignerObj = activeUsers.find(u => u.username.toLowerCase().trim() === (t.assigned_by || '').toLowerCase().trim());
                 const assignerName = assignerObj ? assignerObj.full_name : t.assigned_by;
 
                 const tr = document.createElement('tr');
@@ -2231,7 +2299,7 @@
                 return;
             }
             state.skills.forEach(s => {
-                const userObj = activeUsers.find(u => u.username === s.intern_name);
+                const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (s.intern_name || '').toLowerCase().trim());
                 const displayName = userObj ? userObj.full_name : s.intern_name;
 
                 const tr = document.createElement('tr');
@@ -2263,10 +2331,10 @@
                 return;
             }
             state.feedback.forEach(f => {
-                const targetObj = activeUsers.find(u => u.username === f.intern_name);
+                const targetObj = activeUsers.find(u => u.username.toLowerCase().trim() === (f.intern_name || '').toLowerCase().trim());
                 const targetName = targetObj ? targetObj.full_name : f.intern_name;
 
-                const reviewerObj = activeUsers.find(u => u.username === f.feedback_from);
+                const reviewerObj = activeUsers.find(u => u.username.toLowerCase().trim() === (f.feedback_from || '').toLowerCase().trim());
                 const reviewerName = reviewerObj ? reviewerObj.full_name : f.feedback_from;
 
                 const tr = document.createElement('tr');
@@ -2317,6 +2385,124 @@
                 tbody.appendChild(tr);
             });
         }
+
+        // Toggle Notifications Dropdown
+        function toggleNotifDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('notif-dropdown');
+            if (dropdown) {
+                const isShowing = dropdown.style.display === 'block';
+                dropdown.style.display = isShowing ? 'none' : 'block';
+            }
+        }
+
+        // Fetch and Render Notifications
+        async function fetchNotifications(showToasts = false) {
+            try {
+                const res = await apiFetch('/notifications');
+                if (res.ok) {
+                    const newNotifications = await res.json();
+                    
+                    if (showToasts && state.notifications && state.notifications.length > 0) {
+                        newNotifications.forEach(notif => {
+                            if (!notif.read) {
+                                const alreadyKnown = state.notifications.find(n => n.id === notif.id);
+                                if (!alreadyKnown) {
+                                    showToast(notif.message, "info");
+                                }
+                            }
+                        });
+                    }
+
+                    state.notifications = newNotifications;
+                    renderNotifications();
+                }
+            } catch (err) {
+                console.error("Failed to load notifications", err);
+            }
+        }
+
+        // Render Notifications List & Badge
+        function renderNotifications() {
+            const badge = document.getElementById('notif-badge');
+            const listContainer = document.getElementById('notif-list-container');
+            if (!badge || !listContainer) return;
+
+            const unreadCount = state.notifications.filter(n => !n.read).length;
+            if (unreadCount > 0) {
+                badge.innerText = unreadCount;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+
+            listContainer.innerHTML = '';
+            if (state.notifications.length === 0) {
+                listContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 16px 0;">No new notifications.</div>';
+                return;
+            }
+
+            state.notifications.forEach(n => {
+                const div = document.createElement('div');
+                div.style.padding = '8px';
+                div.style.borderRadius = '6px';
+                div.style.background = n.read ? 'rgba(255,255,255,0.01)' : 'rgba(99,102,241,0.05)';
+                div.style.borderLeft = n.read ? '2px solid transparent' : '2px solid var(--primary)';
+                div.style.fontSize = '12px';
+                div.style.display = 'flex';
+                div.style.flexDirection = 'column';
+                div.style.gap = '4px';
+                div.style.cursor = 'pointer';
+                div.style.transition = 'background 0.2s';
+                
+                div.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (!n.read) {
+                        try {
+                            const res = await apiFetch(`/notifications/${n.id}/read`, { method: 'POST' });
+                            if (res.ok) {
+                                n.read = true;
+                                renderNotifications();
+                            }
+                        } catch (err) {
+                            console.error("Failed to mark notification read", err);
+                        }
+                    }
+                };
+
+                const dateStr = new Date(n.created_at).toLocaleString();
+                div.innerHTML = `
+                    <div style="color: var(--text); font-weight: ${n.read ? '400' : '600'}; line-height: 1.3;">${escapeHTML(n.message)}</div>
+                    <div style="color: var(--text-muted); font-size: 10px;">${dateStr}</div>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        // Mark all notifications as read
+        async function markAllNotificationsRead(event) {
+            event.stopPropagation();
+            try {
+                const res = await apiFetch('/notifications/read', { method: 'POST' });
+                if (res.ok) {
+                    state.notifications.forEach(n => n.read = true);
+                    renderNotifications();
+                }
+            } catch (err) {
+                console.error("Failed to mark all notifications read", err);
+            }
+        }
+
+        // Close dropdown when clicking outside
+        window.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('notif-dropdown');
+            if (dropdown && dropdown.style.display === 'block') {
+                const container = document.getElementById('notif-bell-container');
+                if (container && !container.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            }
+        });
 
         // Action Helpers: Update task status
         async function updateTaskStatus(taskId, status) {
@@ -2409,6 +2595,13 @@
                 } catch (err) {
                     console.error("Failed to automatically refresh directory status", err);
                 }
+            }
+        }, 10000);
+
+        // Periodically check for new notifications (every 10 seconds for all users)
+        setInterval(async () => {
+            if (currentUser) {
+                await fetchNotifications(true);
             }
         }, 10000);
 
