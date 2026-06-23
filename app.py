@@ -141,6 +141,18 @@ def login():
     session['role'] = user['role']
     session['full_name'] = user['full_name']
 
+    # Record login activity log
+    try:
+        db.session_logs.insert_one({
+            "username": user['username'],
+            "full_name": user['full_name'],
+            "role": user['role'],
+            "login_time": datetime.datetime.utcnow(),
+            "logout_time": None
+        })
+    except Exception as e:
+        print(f"Failed to record login session: {e}")
+
     return jsonify({
         "message": "Login successful!",
         "user": {
@@ -153,6 +165,32 @@ def login():
 
 @app.route('/logout', methods=['POST'])
 def logout():
+    user = get_logged_in_user()
+    if user:
+        try:
+            # Find the latest active session for this user and set logout_time
+            latest_sess = db.session_logs.find_one(
+                {"username": user['username'], "logout_time": None},
+                sort=[("login_time", pymongo.DESCENDING)]
+            )
+            if latest_sess:
+                db.session_logs.update_one(
+                    {"_id": latest_sess["_id"]},
+                    {"$set": {"logout_time": datetime.datetime.utcnow()}}
+                )
+            else:
+                latest_any = db.session_logs.find_one(
+                    {"username": user['username']},
+                    sort=[("login_time", pymongo.DESCENDING)]
+                )
+                if latest_any:
+                    db.session_logs.update_one(
+                        {"_id": latest_any["_id"]},
+                        {"$set": {"logout_time": datetime.datetime.utcnow()}}
+                    )
+        except Exception as e:
+            print(f"Failed to record logout session: {e}")
+
     session.clear()
     return jsonify({"message": "Logged out successfully!"})
 
@@ -167,6 +205,16 @@ def current_user():
         "full_name": user['full_name'],
         "role": user['role']
     })
+
+
+@app.route('/session_logs', methods=['GET'])
+def get_session_logs():
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    logs = list(db.session_logs.find({}).sort("login_time", -1).limit(50))
+    return jsonify(serialize(logs))
 
 
 # Fetch users list dynamically (useful for task assignment dropdowns)
@@ -466,7 +514,9 @@ def add_task():
             "status": status,
             "percent_done": int(percent_done),
             "assigned_by": user['username'],
-            "notes": notes
+            "notes": notes,
+            "started_at": None,
+            "completed_at": None
         })
     except Exception as e:
         return jsonify({"error": f"Task creation failed: {str(e)}"}), 500
@@ -504,9 +554,17 @@ def update_task(task_id):
     update_fields = {}
     if status is not None:
         update_fields["status"] = status
-        if status == 'Completed' and not completed_date:
-            completed_date = datetime.date.today().isoformat()
-            update_fields["completed_date"] = completed_date
+        
+        # Track start time when moved to In Progress
+        if status == 'In Progress' and not task.get('started_at'):
+            update_fields["started_at"] = datetime.datetime.utcnow().isoformat() + 'Z'
+            
+        # Track completion time when moved to Completed
+        if status == 'Completed':
+            if not task.get('completed_at'):
+                update_fields["completed_at"] = datetime.datetime.utcnow().isoformat() + 'Z'
+            if not task.get('completed_date'):
+                update_fields["completed_date"] = datetime.date.today().isoformat()
     if percent_done is not None:
         try:
             update_fields["percent_done"] = int(percent_done)

@@ -504,6 +504,50 @@
         }
 
         /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+            border: none;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .btn-danger {
+            background: rgba(239, 110, 110, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 110, 110, 0.3);
+        }
+        .btn-danger:hover {
+            background: rgba(239, 110, 110, 0.25);
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
         .btn-submit {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: #fff;
@@ -939,10 +983,34 @@
                                     <th>Full Name</th>
                                     <th>Username</th>
                                     <th>Role</th>
+                                    <th>Activity Count</th>
                                     <th style="width: 120px; text-align: center;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="team-roster-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                </div>
+
+                <!-- User Session Log Panel (Visible to Admins Only) -->
+                <div class="panel" id="session-logs-panel" style="display: none; margin-bottom: 30px;">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-clock-rotate-left" style="color: var(--primary);"></i>
+                        <span>User Login / Logout Activity Log</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Full Name</th>
+                                    <th>Role</th>
+                                    <th>Login Time</th>
+                                    <th>Logout Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="session-logs-table-body">
                                 <!-- Populated dynamically -->
                             </tbody>
                         </table>
@@ -1162,14 +1230,18 @@
                             <i class="fa-solid fa-list-ol"></i>
                             <span>Task Backlog</span>
                         </div>
+                        <div id="task-view-toggle-container" style="display: none; margin-bottom: 15px; gap: 10px;">
+                            <button id="btn-view-team-tasks" class="btn btn-primary btn-sm" onclick="setTaskView('team')">Team Workspace</button>
+                            <button id="btn-view-my-tasks" class="btn btn-secondary btn-sm" onclick="setTaskView('my')">My Workspace</button>
+                        </div>
                         <div class="table-responsive">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>Intern</th>
+                                        <th>Assignee</th>
                                         <th>Task</th>
                                         <th>Priority</th>
-                                        <th>Due Date</th>
+                                        <th>Timeline</th>
                                         <th>Status</th>
                                         <th>% Done</th>
                                         <th>Actions</th>
@@ -1417,6 +1489,7 @@
         let currentUser = null;
         let activeUsers = []; // Stores list of users dynamically fetched
         let editingLogId = null; // Holds the ID of the log currently being updated
+        let currentTaskView = 'team'; // Tracks workspace view: 'team' vs 'my'
         
         let state = {
             logs: [],
@@ -1562,6 +1635,8 @@
 
                 document.getElementById('dash-filter-panel').style.display = 'none';
                 document.getElementById('team-roster-panel').style.display = 'none';
+                document.getElementById('session-logs-panel').style.display = 'none';
+                document.getElementById('task-view-toggle-container').style.display = 'none';
             } else {
                 // Admin or Manager
                 // They don't log personal hours, so hide Daily Tracker and Skills Log navigation tabs
@@ -1578,6 +1653,13 @@
                 // Show Admin Overview filter panel on Dashboard
                 document.getElementById('dash-filter-panel').style.display = 'block';
                 document.getElementById('team-roster-panel').style.display = 'block';
+                
+                // Show session logs activity list to Admins only
+                document.getElementById('session-logs-panel').style.display = currentUser.role === 'Admin' ? 'block' : 'none';
+                
+                // Show personal workspace toggle
+                document.getElementById('task-view-toggle-container').style.display = 'flex';
+                setTaskView('team'); // Reset view to team tasks by default
             }
 
             // Populate assignment select options dynamically
@@ -1698,14 +1780,50 @@
                 else if (u.role === 'Employee') badgeClass = 'badge-primary';
                 else if (u.role === 'Intern') badgeClass = 'badge-success';
 
+                // Calculate activity metrics
+                let activityHtml = '';
+                if (u.role === 'Admin' || u.role === 'Manager' || u.role === 'Employee') {
+                    const assignedTasks = state.tasks.filter(t => t.assigned_by === u.username).length;
+                    const feedbackReviews = state.feedback.filter(f => f.feedback_from === u.username).length;
+                    activityHtml = `<span style="font-size:12px; color:var(--text-muted);">Assigned: ${assignedTasks} tasks, ${feedbackReviews} reviews</span>`;
+                } else if (u.role === 'Intern') {
+                    const myTasks = state.tasks.filter(t => t.intern_name === u.username).length;
+                    const loggedHours = state.logs.filter(l => l.intern_name === u.username).length;
+                    activityHtml = `<span style="font-size:12px; color:var(--text-muted);">${myTasks} tasks, ${loggedHours} logs</span>`;
+                }
+
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${escapeHTML(u.full_name)}</td>
                     <td>${escapeHTML(u.username)}</td>
                     <td><span class="badge ${badgeClass}">${u.role}</span></td>
+                    <td>${activityHtml}</td>
                     <td style="text-align: center;">${actionHtml}</td>
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function setTaskView(view) {
+            currentTaskView = view;
+            
+            const btnTeam = document.getElementById('btn-view-team-tasks');
+            const btnMy = document.getElementById('btn-view-my-tasks');
+            
+            if (btnTeam && btnMy) {
+                if (view === 'team') {
+                    btnTeam.classList.remove('btn-secondary');
+                    btnTeam.classList.add('btn-primary');
+                    btnMy.classList.remove('btn-primary');
+                    btnMy.classList.add('btn-secondary');
+                } else {
+                    btnMy.classList.remove('btn-secondary');
+                    btnMy.classList.add('btn-primary');
+                    btnTeam.classList.remove('btn-primary');
+                    btnTeam.classList.add('btn-secondary');
+                }
+            }
+            
+            renderTasks();
         }
 
         // Fetch logs, tasks, skills, feedback
@@ -1729,6 +1847,16 @@
                 renderTasks();
                 renderSkills();
                 renderFeedback();
+
+                if (currentUser.role === 'Admin') {
+                    try {
+                        const resSessionLogs = await apiFetch('/session_logs');
+                        state.sessionLogs = await resSessionLogs.json();
+                        renderSessionLogs();
+                    } catch (err) {
+                        console.error("Failed to load session logs", err);
+                    }
+                }
 
             } catch (err) {
                 console.error("Fetch Data failed", err);
@@ -1916,11 +2044,23 @@
         function renderTasks() {
             const tbody = document.getElementById('tasks-table-body');
             tbody.innerHTML = '';
-            if (state.tasks.length === 0) {
+            
+            // Filter tasks based on role and active workspace view
+            let tasksToRender = [...state.tasks];
+            if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
+                if (currentTaskView === 'my') {
+                    tasksToRender = tasksToRender.filter(t => t.intern_name === currentUser.username);
+                } else {
+                    tasksToRender = tasksToRender.filter(t => t.intern_name !== currentUser.username);
+                }
+            }
+
+            if (tasksToRender.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No tasks in backlog.</td></tr>';
                 return;
             }
-            state.tasks.forEach(t => {
+
+            tasksToRender.forEach(t => {
                 const targetUserObj = activeUsers.find(u => u.username === t.intern_name);
                 const targetName = targetUserObj ? targetUserObj.full_name : t.intern_name;
 
@@ -1934,14 +2074,35 @@
                 const canDelete = currentUser.role === 'Admin' || currentUser.role === 'Manager' || t.assigned_by === currentUser.username;
                 const deleteButton = canDelete ? `<button onclick="deleteTask('${t.id}')" class="btn-action delete" title="Delete Task"><i class="fa-solid fa-trash"></i></button>` : '';
 
+                // Construct timeline details
+                let timelineHtml = `<div style="font-size:11px; line-height:1.4; color:var(--text-muted);">`;
+                timelineHtml += `<div><strong>Assigned:</strong> ${t.assigned_date || '-'}</div>`;
+                if (t.started_at) {
+                    const startedStr = new Date(t.started_at).toLocaleString();
+                    timelineHtml += `<div><strong>Started:</strong> ${startedStr}</div>`;
+                }
+                if (t.completed_at) {
+                    const completedStr = new Date(t.completed_at).toLocaleString();
+                    timelineHtml += `<div><strong>Ended:</strong> ${completedStr}</div>`;
+                    
+                    const durationMs = new Date(t.completed_at) - new Date(t.started_at || t.assigned_date);
+                    const durationStr = formatDuration(durationMs);
+                    if (durationStr) {
+                        timelineHtml += `<div style="margin-top:4px;"><span class="badge badge-success" style="font-size:10px; padding:2px 6px;">Took: ${durationStr}</span></div>`;
+                    }
+                }
+                timelineHtml += `</div>`;
+
                 tr.innerHTML = `
                     <td style="font-weight:600;">${escapeHTML(targetName)}</td>
                     <td>
                         <strong style="${isCompleted ? 'text-decoration: line-through; color: var(--text-muted);' : ''}">${escapeHTML(t.task_name)}</strong>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">By ${escapeHTML(assignerName || 'Supervisor')}</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+                            By ${escapeHTML(assignerName || 'Supervisor')} | <strong>Due:</strong> ${t.due_date || '-'}
+                        </div>
                     </td>
                     <td><span class="badge ${t.priority === 'High' ? 'badge-danger' : (t.priority === 'Low' ? 'badge-primary' : 'badge-warning')}">${t.priority}</span></td>
-                    <td>${t.due_date || '-'}</td>
+                    <td>${timelineHtml}</td>
                     <td>
                         <select onchange="updateTaskStatus('${t.id}', this.value)" style="padding: 6px 10px; font-size:12px; border-radius:6px; width:auto; background:rgba(255,255,255,0.02)">
                             <option value="Not Started" ${t.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
@@ -1962,6 +2123,22 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function formatDuration(ms) {
+            if (isNaN(ms) || ms < 0) return '';
+            const totalMinutes = Math.floor(ms / 60000);
+            if (totalMinutes === 0) return 'less than 1m';
+            const days = Math.floor(totalMinutes / (24 * 60));
+            const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+            const minutes = totalMinutes % 60;
+            
+            let parts = [];
+            if (days > 0) parts.push(`${days}d`);
+            if (hours > 0) parts.push(`${hours}h`);
+            if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+            
+            return parts.join(' ');
         }
 
         // Render Skills table list
@@ -2024,6 +2201,36 @@
                     <td>
                         ${f.strength_noted ? `<div style="font-size:12px; color:#34d399;"><i class="fa-solid fa-plus-circle"></i> Strength: ${escapeHTML(f.strength_noted)}</div>` : ''}
                         ${f.area_to_improve ? `<div style="font-size:12px; color:#fbbf24; margin-top:2px;"><i class="fa-solid fa-pen-circle"></i> Improve: ${escapeHTML(f.area_to_improve)}</div>` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderSessionLogs() {
+            const tbody = document.getElementById('session-logs-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (!state.sessionLogs || state.sessionLogs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No login logs available.</td></tr>';
+                return;
+            }
+            state.sessionLogs.forEach(l => {
+                const tr = document.createElement('tr');
+                
+                const loginStr = l.login_time ? new Date(l.login_time).toLocaleString() : '-';
+                const logoutStr = l.logout_time ? new Date(l.logout_time).toLocaleString() : '-';
+                const isActive = !l.logout_time;
+                
+                tr.innerHTML = `
+                    <td style="font-weight:600;">${escapeHTML(l.full_name || l.username)}</td>
+                    <td><span class="badge ${l.role === 'Admin' ? 'badge-danger' : l.role === 'Manager' ? 'badge-warning' : l.role === 'Employee' ? 'badge-primary' : 'badge-success'}">${l.role}</span></td>
+                    <td>${loginStr}</td>
+                    <td>${logoutStr}</td>
+                    <td>
+                        <span class="badge ${isActive ? 'badge-success' : 'badge-primary'}">
+                            ${isActive ? 'Active' : 'Logged Out'}
+                        </span>
                     </td>
                 `;
                 tbody.appendChild(tr);
