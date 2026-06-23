@@ -231,6 +231,12 @@ def get_users():
 
     # Fetch users
     users = list(db.users.find(query).sort("full_name", 1))
+    
+    # Check session presence status
+    for u in users:
+        active_session = db.session_logs.find_one({"username": u['username'], "logout_time": None})
+        u['status'] = "Available" if active_session else "Logged Out"
+
     return jsonify(serialize(users))
 
 

@@ -31,6 +31,31 @@
             --font-main: 'Inter', -apple-system, sans-serif;
         }
 
+        body.theme-admin {
+            --primary: #ef4444;
+            --primary-hover: #dc2626;
+            --secondary: #ec4899;
+            --bg-gradient: radial-gradient(circle at 50% 0%, #450a0a 0%, #09090b 100%);
+        }
+        body.theme-manager {
+            --primary: #f59e0b;
+            --primary-hover: #d97706;
+            --secondary: #f97316;
+            --bg-gradient: radial-gradient(circle at 50% 0%, #451a03 0%, #09090b 100%);
+        }
+        body.theme-employee {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary: #10b981;
+            --bg-gradient: radial-gradient(circle at 50% 0%, #172554 0%, #09090b 100%);
+        }
+        body.theme-intern {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --secondary: #a855f7;
+            --bg-gradient: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #09090b 100%);
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -795,8 +820,8 @@
             <div class="brand">
                 <div class="brand-logo"><i class="fa-solid fa-bolt"></i></div>
                 <div class="brand-title">
-                    <h1>Sanna Portal</h1>
-                    <p>Internship System</p>
+                    <h1 id="logo-title">Sanna Portal</h1>
+                    <p id="logo-subtitle">Internship System</p>
                 </div>
             </div>
 
@@ -984,6 +1009,7 @@
                                     <th>Username</th>
                                     <th>Role</th>
                                     <th>Activity Count</th>
+                                    <th>Status</th>
                                     <th style="width: 120px; text-align: center;">Actions</th>
                                 </tr>
                             </thead>
@@ -1551,14 +1577,14 @@
                 document.getElementById(tabId).classList.add('active');
 
                 const titles = {
-                    'dashboard': 'Internship Dashboard',
+                    'dashboard': currentUser.role === 'Admin' ? 'Admin Control Panel' : (currentUser.role === 'Manager' ? 'Manager Overview' : (currentUser.role === 'Employee' ? 'Employee Workspace' : 'Internship Dashboard')),
                     'daily-logs': 'Daily Logs Tracker',
                     'tasks': 'Task & Project Tracker',
                     'skills': 'Skills & Learnings Log',
                     'feedback': 'Mentor & Supervisor Feedback'
                 };
                 const subtitles = {
-                    'dashboard': 'Dynamic Summary Analytics',
+                    'dashboard': currentUser.role === 'Admin' ? 'Complete system overview and login tracking' : (currentUser.role === 'Manager' ? 'Subordinate tracking & operations statistics' : (currentUser.role === 'Employee' ? 'Personal progress & tasks tracking' : 'Dynamic Summary Analytics')),
                     'daily-logs': 'Daily check-in, deliverables, and progress logs',
                     'tasks': 'Manage and update project deliverables',
                     'skills': 'Track online courses and proficiency changes',
@@ -1617,6 +1643,34 @@
         function setupPortalForRole() {
             hideAuthOverlay();
             
+            // Apply role-based theme class to body and update branding
+            document.body.className = ''; // Reset previous themes
+            
+            const logoTitle = document.getElementById('logo-title');
+            const logoSubtitle = document.getElementById('logo-subtitle');
+            
+            let brandTitle = "Sanna Portal";
+            let brandSubtitle = "Internship System";
+
+            if (currentUser.role === 'Admin') {
+                document.body.classList.add('theme-admin');
+                brandTitle = "Sanna Admin";
+                brandSubtitle = "System Console";
+            } else if (currentUser.role === 'Manager') {
+                document.body.classList.add('theme-manager');
+                brandTitle = "Sanna Manager";
+                brandSubtitle = "Team Management";
+            } else if (currentUser.role === 'Employee') {
+                document.body.classList.add('theme-employee');
+                brandTitle = "Sanna Employee";
+                brandSubtitle = "Associate Portal";
+            } else {
+                document.body.classList.add('theme-intern');
+            }
+
+            if (logoTitle) logoTitle.innerText = brandTitle;
+            if (logoSubtitle) logoSubtitle.innerText = brandSubtitle;
+
             // Set user profile footer info
             document.getElementById('user-display-name').innerText = currentUser.full_name;
             document.getElementById('user-display-role').innerText = currentUser.role;
@@ -1661,6 +1715,26 @@
                 document.getElementById('task-view-toggle-container').style.display = 'flex';
                 setTaskView('team'); // Reset view to team tasks by default
             }
+
+            // Update main header text for active tab
+            const activeTabItem = document.querySelector('.nav-item.active');
+            const tabId = activeTabItem ? activeTabItem.dataset.tab : 'dashboard';
+            const titles = {
+                'dashboard': currentUser.role === 'Admin' ? 'Admin Control Panel' : (currentUser.role === 'Manager' ? 'Manager Overview' : (currentUser.role === 'Employee' ? 'Employee Workspace' : 'Internship Dashboard')),
+                'daily-logs': 'Daily Logs Tracker',
+                'tasks': 'Task & Project Tracker',
+                'skills': 'Skills & Learnings Log',
+                'feedback': 'Mentor & Supervisor Feedback'
+            };
+            const subtitles = {
+                'dashboard': currentUser.role === 'Admin' ? 'Complete system overview and login tracking' : (currentUser.role === 'Manager' ? 'Subordinate tracking & operations statistics' : (currentUser.role === 'Employee' ? 'Personal progress & tasks tracking' : 'Dynamic Summary Analytics')),
+                'daily-logs': 'Daily check-in, deliverables, and progress logs',
+                'tasks': 'Manage and update project deliverables',
+                'skills': 'Track online courses and proficiency changes',
+                'feedback': 'Chronological record of supervisor feedback and action items'
+            };
+            document.getElementById('tab-title').innerText = titles[tabId];
+            document.getElementById('tab-subtitle').innerText = subtitles[tabId];
 
             // Populate assignment select options dynamically
             populateDropdowns();
@@ -1792,11 +1866,18 @@
                     activityHtml = `<span style="font-size:12px; color:var(--text-muted);">${myTasks} tasks, ${loggedHours} logs</span>`;
                 }
 
+                // Render status badge
+                const isOnline = u.status === 'Available';
+                const statusBadgeHtml = `<span class="badge ${isOnline ? 'badge-success' : 'badge-primary'}" style="${isOnline ? '' : 'opacity: 0.6;'}">
+                    <i class="fa-solid ${isOnline ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${u.status || 'Logged Out'}
+                </span>`;
+
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${escapeHTML(u.full_name)}</td>
                     <td>${escapeHTML(u.username)}</td>
                     <td><span class="badge ${badgeClass}">${u.role}</span></td>
                     <td>${activityHtml}</td>
+                    <td>${statusBadgeHtml}</td>
                     <td style="text-align: center;">${actionHtml}</td>
                 `;
                 tbody.appendChild(tr);
@@ -2319,6 +2400,17 @@
                 }
             }
         }, 5000);
+
+        // Periodically refresh user presence and directories (every 10 seconds for Admins/Managers)
+        setInterval(async () => {
+            if (currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Manager')) {
+                try {
+                    await populateDropdowns(); // Dynamic user status fetch and roster update
+                } catch (err) {
+                    console.error("Failed to automatically refresh directory status", err);
+                }
+            }
+        }, 10000);
 
         // Automatically calculate hours from check-in/out
         function autoCalculateHours() {
