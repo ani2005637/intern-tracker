@@ -1109,29 +1109,6 @@
                         </table>
                 </div>
 
-                <!-- User Session Log Panel (Visible to Admins Only) -->
-                <div class="panel" id="session-logs-panel" style="display: none; margin-bottom: 30px;">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-clock-rotate-left" style="color: var(--primary);"></i>
-                        <span>User Login / Logout Activity Log</span>
-                    </div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Full Name</th>
-                                    <th>Role</th>
-                                    <th>Login Time</th>
-                                    <th>Logout Time</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="session-logs-table-body">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
             </section>
 
 
@@ -1781,7 +1758,6 @@
 
                 document.getElementById('dash-filter-panel').style.display = 'none';
                 document.getElementById('team-roster-panel').style.display = 'none';
-                document.getElementById('session-logs-panel').style.display = 'none';
                 document.getElementById('task-view-toggle-container').style.display = 'none';
             } else {
                 // Admin or Manager
@@ -1799,9 +1775,6 @@
                 // Show Admin Overview filter panel on Dashboard
                 document.getElementById('dash-filter-panel').style.display = 'block';
                 document.getElementById('team-roster-panel').style.display = 'block';
-                
-                // Show session logs activity list to Admins only
-                document.getElementById('session-logs-panel').style.display = currentUser.role === 'Admin' ? 'block' : 'none';
                 
                 // Show personal workspace toggle for Managers only. Admins track the entire team and do not need a personal workspace view.
                 if (currentUser.role === 'Admin') {
@@ -2060,10 +2033,6 @@
                     apiFetch('/notifications').then(r => r.json())
                 ];
 
-                if (currentUser.role === 'Admin') {
-                    promises.push(apiFetch('/session_logs').then(r => r.json()));
-                }
-
                 const results = await Promise.all(promises);
                 
                 state.logs = results[0];
@@ -2085,10 +2054,6 @@
                 }
                 state.notifications = newNotifs;
 
-                if (currentUser.role === 'Admin') {
-                    state.sessionLogs = results[5];
-                }
-
                 // Render views
                 renderDashboard();
                 renderLogs();
@@ -2096,10 +2061,6 @@
                 renderSkills();
                 renderFeedback();
                 renderNotifications();
-
-                if (currentUser.role === 'Admin') {
-                    renderSessionLogs();
-                }
 
             } catch (err) {
                 console.error("Fetch Data failed", err);
@@ -2450,35 +2411,6 @@
             });
         }
 
-        function renderSessionLogs() {
-            const tbody = document.getElementById('session-logs-table-body');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            if (!state.sessionLogs || state.sessionLogs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No login logs available.</td></tr>';
-                return;
-            }
-            state.sessionLogs.forEach(l => {
-                const tr = document.createElement('tr');
-                
-                const loginStr = l.login_time ? new Date(l.login_time).toLocaleString() : '-';
-                const logoutStr = l.logout_time ? new Date(l.logout_time).toLocaleString() : '-';
-                const isActive = !l.logout_time;
-                
-                tr.innerHTML = `
-                    <td style="font-weight:600;">${escapeHTML(l.full_name || l.username)}</td>
-                    <td><span class="badge ${l.role === 'Admin' ? 'badge-danger' : l.role === 'Manager' ? 'badge-warning' : l.role === 'Employee' ? 'badge-primary' : 'badge-success'}">${l.role}</span></td>
-                    <td>${loginStr}</td>
-                    <td>${logoutStr}</td>
-                    <td>
-                        <span class="badge ${isActive ? 'badge-success' : 'badge-primary'}">
-                            ${isActive ? 'Active' : 'Logged Out'}
-                        </span>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
 
         // Toggle Notifications Dropdown
         function toggleNotifDropdown(event) {

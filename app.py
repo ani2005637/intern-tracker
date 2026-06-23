@@ -227,15 +227,6 @@ def current_user():
     })
 
 
-@app.route('/session_logs', methods=['GET'])
-def get_session_logs():
-    user = get_logged_in_user()
-    if not user or user['role'] != 'Admin':
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    logs = list(db.session_logs.find({}).sort("login_time", -1).limit(50))
-    return jsonify(serialize(logs))
-
 
 # Fetch users list dynamically (useful for task assignment dropdowns)
 @app.route('/users', methods=['GET'])

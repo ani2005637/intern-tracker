@@ -23,11 +23,7 @@ def seed():
     # Seed default role testing accounts
     print("Seeding default testing user accounts...")
     default_users = [
-        ('admin', 'admin123', 'Admin User', 'Admin', 'admin@sannainnovations.com', 'System Administrator'),
-        ('manager', 'manager123', 'Manager User', 'Manager', 'manager@sannainnovations.com', 'Operations Manager'),
-        ('employee', 'employee123', 'Employee User', 'Employee', 'employee@sannainnovations.com', 'Senior Associate'),
-        ('intern', 'intern123', 'Intern User', 'Intern', 'intern@sannainnovations.com', 'UI/UX Design Intern'),
-        ('srikakula anirudh', 'anirudh123', 'SRIKAKULA ANIRUDH', 'Intern', 'srikakula@sannainnovations.com', 'Frontend Developer Intern')
+        ('admin', 'admin123', 'Admin User', 'Admin', 'admin@sannainnovations.com', 'System Administrator')
     ]
     for username, password, full_name, role, email, title in default_users:
         # Avoid duplicate seed if user somehow already exists
