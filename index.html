@@ -32,16 +32,16 @@
         }
 
         body.theme-admin {
-            --primary: #ef4444;
-            --primary-hover: #dc2626;
-            --secondary: #ec4899;
-            --bg-gradient: radial-gradient(circle at 50% 0%, #450a0a 0%, #09090b 100%);
+            --primary: #f43f5e;
+            --primary-hover: #e11d48;
+            --secondary: #fb7185;
+            --bg-gradient: radial-gradient(circle at 50% 0%, #250914 0%, #09090b 100%);
         }
         body.theme-manager {
             --primary: #f59e0b;
             --primary-hover: #d97706;
-            --secondary: #f97316;
-            --bg-gradient: radial-gradient(circle at 50% 0%, #451a03 0%, #09090b 100%);
+            --secondary: #fbbf24;
+            --bg-gradient: radial-gradient(circle at 50% 0%, #201305 0%, #09090b 100%);
         }
         body.theme-employee {
             --primary: #3b82f6;
@@ -742,6 +742,54 @@
             filter: invert(1);
             cursor: pointer;
         }
+
+        /* Highlight and enlarge target user select in Create Task Panel */
+        #task_intern_name {
+            padding: 16px 20px !important;
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            border-radius: 12px !important;
+            border: 2px solid var(--primary) !important;
+            background-color: rgba(255, 255, 255, 0.08) !important;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            height: auto !important;
+            margin-top: 6px;
+        }
+        #task_intern_name:focus {
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25) !important;
+            background-color: rgba(255, 255, 255, 0.12) !important;
+        }
+
+        /* Signup card form fields styling */
+        #signup-card {
+            max-width: 600px;
+            width: 90%;
+        }
+        #signup-card label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 13px;
+        }
+        
+        .password-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .password-toggle-icon {
+            position: absolute;
+            right: 14px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 16px;
+            transition: color 0.2s;
+        }
+        .password-toggle-icon:hover {
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -775,39 +823,61 @@
 
         <!-- Sign Up View -->
         <div id="signup-card" class="auth-card" style="display: none;">
-            <div class="auth-header">
-                <div class="auth-logo"><i class="fa-solid fa-user-plus"></i></div>
+            <div class="auth-header" style="margin-bottom: 24px;">
+                <div class="auth-logo"><i class="fa-solid fa-graduation-cap"></i></div>
                 <h2>Create Account</h2>
-                <p>Register a new portal profile</p>
+                <p>Join the Sanna Innovations Tracker</p>
             </div>
             <form id="signupForm">
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="signup_fullname">Full Name</label>
-                    <input type="text" id="signup_fullname" placeholder="e.g. Jakka Balaji Mahendra" required>
+                <!-- Row 1: Username & Password -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                    <div class="form-group">
+                        <label for="signup_username"><i class="fa-solid fa-user" style="margin-right: 6px; font-size: 13px; color: var(--text-muted);"></i>Username *</label>
+                        <input type="text" id="signup_username" placeholder="Username" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="signup_password"><i class="fa-solid fa-lock" style="margin-right: 6px; font-size: 13px; color: var(--text-muted);"></i>Password *</label>
+                        <div class="password-container">
+                            <input type="password" id="signup_password" placeholder="Password" required autocomplete="new-password" style="padding-right: 40px;">
+                            <i class="fa-solid fa-eye-slash password-toggle-icon" id="toggle-signup-password" onclick="togglePasswordVisibility('signup_password', 'toggle-signup-password')"></i>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="signup_username">Username</label>
-                    <input type="text" id="signup_username" placeholder="e.g. j.balaji" required autocomplete="username">
+
+                <!-- Row 2: Full Name & Desired Role -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                    <div class="form-group">
+                        <label for="signup_fullname">Full Name *</label>
+                        <input type="text" id="signup_fullname" placeholder="e.g. John Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup_role">Desired Role *</label>
+                        <select id="signup_role" required style="background-color: rgba(255,255,255,0.03);">
+                            <option value="Intern">Intern</option>
+                            <option value="Employee">Employee</option>
+                            <option value="Manager">Manager</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="signup_password">Password</label>
-                    <input type="password" id="signup_password" placeholder="••••••••" required autocomplete="new-password">
+
+                <!-- Row 3: Email Address -->
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="signup_email"><i class="fa-solid fa-envelope" style="margin-right: 6px; font-size: 13px; color: var(--text-muted);"></i>Email Address *</label>
+                    <input type="email" id="signup_email" placeholder="e.g. name@sannainnovations.com" required>
                 </div>
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label for="signup_role">System Role</label>
-                    <select id="signup_role" required>
-                        <option value="Intern">Intern</option>
-                        <option value="Employee">Employee (Developer/Staff)</option>
-                        <option value="Manager">Manager (Supervisor)</option>
-                        <option value="Admin">Administrator</option>
-                    </select>
+
+                <!-- Row 4: Title / Designation -->
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label for="signup_title"><i class="fa-solid fa-briefcase" style="margin-right: 6px; font-size: 13px; color: var(--text-muted);"></i>Title / Designation *</label>
+                    <input type="text" id="signup_title" placeholder="e.g. UI/UX Designer / Frontend Developer Intern" required>
                 </div>
-                <button type="submit" class="btn-submit">
+
+                <button type="submit" class="btn-submit" style="width: 100%;">
                     <i class="fa-solid fa-user-plus"></i> Register Profile
                 </button>
             </form>
-            <div class="auth-toggle">
-                Already registered? <span onclick="toggleAuthView('login')">Sign In</span>
+            <div class="auth-toggle" style="margin-top: 16px; text-align: center;">
+                Already registered? <span onclick="toggleAuthView('login')" style="color: var(--primary); cursor: pointer; font-weight: 600;">Sign In</span>
             </div>
         </div>
     </div>
@@ -1025,7 +1095,8 @@
                             <thead>
                                 <tr>
                                     <th>Full Name</th>
-                                    <th>Username</th>
+                                    <th>Username / Email</th>
+                                    <th>Designation</th>
                                     <th>Role</th>
                                     <th>Activity Count</th>
                                     <th>Status</th>
@@ -1619,6 +1690,7 @@
         const todayStr = new Date().toISOString().split('T')[0];
         document.getElementById('log_date').value = todayStr;
         document.getElementById('task_due').value = todayStr;
+        document.getElementById('task_due').min = todayStr; // Prevent selecting past dates
         document.getElementById('fb_date').value = todayStr;
 
         // Custom Mood Rating Selection Handler
@@ -1693,7 +1765,7 @@
 
             // Set user profile footer info
             document.getElementById('user-display-name').innerText = currentUser.full_name;
-            document.getElementById('user-display-role').innerText = currentUser.role;
+            document.getElementById('user-display-role').innerText = `${currentUser.role} (${currentUser.title || ''})`;
 
             // Enforce visibility of navigation options
             if (currentUser.role === 'Intern' || currentUser.role === 'Employee') {
@@ -1731,9 +1803,14 @@
                 // Show session logs activity list to Admins only
                 document.getElementById('session-logs-panel').style.display = currentUser.role === 'Admin' ? 'block' : 'none';
                 
-                // Show personal workspace toggle
-                document.getElementById('task-view-toggle-container').style.display = 'flex';
-                setTaskView('team'); // Reset view to team tasks by default
+                // Show personal workspace toggle for Managers only. Admins track the entire team and do not need a personal workspace view.
+                if (currentUser.role === 'Admin') {
+                    document.getElementById('task-view-toggle-container').style.display = 'none';
+                    setTaskView('team');
+                } else {
+                    document.getElementById('task-view-toggle-container').style.display = 'flex';
+                    setTaskView('team'); // Reset view to team tasks by default
+                }
             }
 
             // Update main header text for active tab
@@ -1780,7 +1857,7 @@
                 dashFilter.innerHTML = '<option value="ALL">All Active Users</option>';
                 
                 // 2. Task Assign To selector
-                taskSelect.innerHTML = '<option value="">Choose target user...</option>';
+                taskSelect.innerHTML = '<option value="">Choose the person...</option>';
 
                 // 3. Feedback Target selector
                 fbSelect.innerHTML = '<option value="">Choose target user...</option>';
@@ -1895,12 +1972,25 @@
                     }
                 }
 
-                // Render role badges
-                let badgeClass = 'badge-primary';
-                if (u.role === 'Admin') badgeClass = 'badge-danger';
-                else if (u.role === 'Manager') badgeClass = 'badge-warning';
-                else if (u.role === 'Employee') badgeClass = 'badge-primary';
-                else if (u.role === 'Intern') badgeClass = 'badge-success';
+                // Render role badges or role select dropdown (Admin only, excluding the original main admin 'admin')
+                let roleHtml = '';
+                if (currentUser.role === 'Admin' && u.username !== 'admin') {
+                    roleHtml = `
+                        <select onchange="updateUserRole('${u.id}', this.value)" style="padding: 6px 10px; font-size: 13px; border-radius: 8px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--card-border); cursor: pointer; font-weight: 500; outline: none; width: auto;">
+                            <option value="Intern" ${u.role === 'Intern' ? 'selected' : ''}>Intern</option>
+                            <option value="Employee" ${u.role === 'Employee' ? 'selected' : ''}>Employee</option>
+                            <option value="Manager" ${u.role === 'Manager' ? 'selected' : ''}>Manager</option>
+                            <option value="Admin" ${u.role === 'Admin' ? 'selected' : ''}>Admin</option>
+                        </select>
+                    `;
+                } else {
+                    let badgeClass = 'badge-primary';
+                    if (u.role === 'Admin') badgeClass = 'badge-danger';
+                    else if (u.role === 'Manager') badgeClass = 'badge-warning';
+                    else if (u.role === 'Employee') badgeClass = 'badge-primary';
+                    else if (u.role === 'Intern') badgeClass = 'badge-success';
+                    roleHtml = `<span class="badge ${badgeClass}">${u.role}</span>`;
+                }
 
                 // Calculate activity metrics
                 let activityHtml = '';
@@ -1922,8 +2012,12 @@
 
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${escapeHTML(u.full_name)}</td>
-                    <td>${escapeHTML(u.username)}</td>
-                    <td><span class="badge ${badgeClass}">${u.role}</span></td>
+                    <td>
+                        <div style="font-weight:600;">${escapeHTML(u.username)}</div>
+                        <div style="font-size:11px; color:var(--text-muted);">${escapeHTML(u.email || '-')}</div>
+                    </td>
+                    <td style="font-size:13px; color:var(--text-muted);">${escapeHTML(u.title || '-')}</td>
+                    <td>${roleHtml}</td>
                     <td>${activityHtml}</td>
                     <td>${statusBadgeHtml}</td>
                     <td style="text-align: center;">${actionHtml}</td>
@@ -2685,7 +2779,9 @@
                 full_name: document.getElementById('signup_fullname').value,
                 username: document.getElementById('signup_username').value,
                 password: document.getElementById('signup_password').value,
-                role: document.getElementById('signup_role').value
+                role: document.getElementById('signup_role').value,
+                email: document.getElementById('signup_email').value,
+                title: document.getElementById('signup_title').value
             };
 
             try {
@@ -2959,6 +3055,51 @@
                 submitBtn.disabled = false;
             }
         });
+
+        // Toggle Password Input Visibility
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (input && icon) {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                } else {
+                    input.type = 'password';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                }
+            }
+        }
+
+        // Update User Role (Admin only)
+        async function updateUserRole(userId, newRole) {
+            if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
+                // Re-render to revert dropdown selection if canceled
+                renderTeamRoster();
+                return;
+            }
+            try {
+                const res = await apiFetch(`/users/${userId}/role`, {
+                    method: 'PUT',
+                    body: { role: newRole }
+                });
+                if (res.ok) {
+                    showToast("User role updated successfully!");
+                    // Re-populate dropdowns and fetch data
+                    await populateDropdowns();
+                    fetchData();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Failed to update role", "error");
+                    renderTeamRoster();
+                }
+            } catch (err) {
+                showToast("Failed to update user role", "error");
+                renderTeamRoster();
+            }
+        }
 
         // Helper: Escape HTML string to prevent XSS
         function escapeHTML(str) {

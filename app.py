@@ -103,8 +103,10 @@ def signup():
     password = data.get('password', '')
     full_name = data.get('full_name', '').strip()
     role = data.get('role', 'Intern')  # 'Admin', 'Manager', 'Employee', 'Intern'
+    email = data.get('email', '').strip()
+    title = data.get('title', '').strip()
 
-    if not username or not password or not full_name or not role:
+    if not username or not password or not full_name or not role or not email or not title:
         return jsonify({"error": "All fields are required"}), 400
 
     if role not in ['Admin', 'Manager', 'Employee', 'Intern']:
@@ -122,6 +124,8 @@ def signup():
             "password_hash": hashed_pw,
             "full_name": full_name,
             "role": role,
+            "email": email,
+            "title": title,
             "created_at": datetime.datetime.utcnow()
         })
     except Exception as e:
@@ -217,7 +221,9 @@ def current_user():
     return jsonify({
         "username": user['username'],
         "full_name": user['full_name'],
-        "role": user['role']
+        "role": user['role'],
+        "email": user.get('email', ''),
+        "title": user.get('title', '')
     })
 
 
@@ -837,6 +843,41 @@ def mark_notification_read(notif_id):
         return jsonify({"error": "Invalid notification ID"}), 400
         
     return jsonify({"message": "Notification marked as read"})
+
+
+# ----------------- USER MANAGEMENT: UPDATE ROLE (Admin Only) -----------------
+@app.route('/users/<user_id>/role', methods=['PUT'])
+def update_user_role(user_id):
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized: Only Admins can modify roles"}), 401
+    
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+        
+    new_role = data.get('role')
+    if new_role not in ['Admin', 'Manager', 'Employee', 'Intern']:
+        return jsonify({"error": "Invalid role"}), 400
+        
+    try:
+        target_user = db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return jsonify({"error": "Invalid user ID format"}), 400
+        
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+        
+    # Prevent changing the role of oneself (prevents admin locking themselves out)
+    if str(target_user['_id']) == str(user['_id']):
+        return jsonify({"error": "You cannot change your own role to prevent lockout"}), 400
+        
+    # Prevent changing the role of the primary admin
+    if target_user['username'] == 'admin':
+        return jsonify({"error": "You cannot change the role of the primary administrator"}), 400
+        
+    db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"role": new_role}})
+    return jsonify({"message": f"User {target_user['full_name']} role updated to {new_role}!"})
 
 
 if __name__ == '__main__':
