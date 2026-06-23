@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Internship Hub - Track & Accelerate</title>
+    <title>Internship Portal - Sanna Innovations</title>
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,7 +43,88 @@
             overflow-x: hidden;
         }
 
-        /* App Layout */
+        /* Overlay Auth Styles */
+        #auth-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .auth-card {
+            background: rgba(24, 24, 27, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .auth-header {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .auth-logo {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 800;
+            color: #fff;
+            margin: 0 auto 10px auto;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+        }
+
+        .auth-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .auth-header p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .auth-toggle {
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 10px;
+        }
+
+        .auth-toggle span {
+            color: var(--primary);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .auth-toggle span:hover {
+            text-decoration: underline;
+        }
+
+        /* App Main Styles (hidden by default until logged in) */
+        #app-container {
+            display: none;
+            width: 100%;
+            min-height: 100vh;
+        }
+
         .sidebar {
             width: 260px;
             background: var(--sidebar-bg);
@@ -51,7 +132,7 @@
             padding: 30px 20px;
             display: flex;
             flex-direction: column;
-            gap: 40px;
+            gap: 30px;
             height: 100vh;
             position: fixed;
             left: 0;
@@ -68,7 +149,7 @@
         }
 
         @media (max-width: 900px) {
-            body {
+            #app-container {
                 flex-direction: column;
             }
             .sidebar {
@@ -109,7 +190,7 @@
         }
 
         .brand-title h1 {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             letter-spacing: -0.5px;
             background: linear-gradient(to right, #ffffff, #c084fc);
@@ -161,30 +242,64 @@
             border-bottom-left-radius: 0;
         }
 
-        /* User Info / Profile Switcher */
-        .user-switcher {
+        /* User Profile Info on Sidebar Footer */
+        .user-profile-footer {
             margin-top: auto;
             border-top: 1px solid rgba(255, 255, 255, 0.05);
             padding-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
 
-        .user-switcher label {
+        .user-profile-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .profile-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #fff;
+        }
+
+        .profile-role {
             font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
             color: var(--text-muted);
-            margin-bottom: 8px;
-            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .user-switcher select {
-            width: 100%;
+        .role-indicator-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--primary);
+        }
+
+        .btn-logout {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--card-border);
-            color: #fff;
+            color: var(--text-muted);
             padding: 10px;
             border-radius: 8px;
-            outline: none;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-logout:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--danger);
         }
 
         /* Top Header in Content Area */
@@ -348,12 +463,6 @@
             color: #fff;
             outline: none;
             font-family: var(--font-main);
-        }
-
-        input[type="time"]::-webkit-calendar-picker-indicator,
-        input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            cursor: pointer;
         }
 
         input:focus, select:focus, textarea:focus {
@@ -556,616 +665,723 @@
             color: var(--danger);
         }
 
-        /* Checkbox lists */
-        .checkbox-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 12px;
-        }
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .checkbox-item input {
-            width: auto;
+        input[type="time"]::-webkit-calendar-picker-indicator,
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-    <!-- Sidebar Navigation -->
-    <nav class="sidebar">
-        <div class="brand">
-            <div class="brand-logo"><i class="fa-solid fa-graduation-cap"></i></div>
-            <div class="brand-title">
-                <h1>Internship Hub</h1>
-                <p>Sanna Innovations</p>
+    <!-- ================= AUTHENTICATION OVERLAY ================= -->
+    <div id="auth-container">
+        <!-- Sign In View -->
+        <div id="login-card" class="auth-card">
+            <div class="auth-header">
+                <div class="auth-logo"><i class="fa-solid fa-lock"></i></div>
+                <h2>Welcome Back</h2>
+                <p>Log in to access Sanna Innovations portal</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="login_username">Username</label>
+                    <input type="text" id="login_username" placeholder="e.g. j.balaji" required autocomplete="username">
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="login_password">Password</label>
+                    <input type="password" id="login_password" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn-submit">
+                    <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                </button>
+            </form>
+            <div class="auth-toggle">
+                Don't have an account? <span onclick="toggleAuthView('signup')">Sign Up</span>
             </div>
         </div>
 
-        <ul class="nav-list">
-            <li class="nav-item active" data-tab="dashboard">
-                <button><i class="fa-solid fa-chart-pie"></i> Dashboard</button>
-            </li>
-            <li class="nav-item" data-tab="daily-logs">
-                <button><i class="fa-solid fa-calendar-day"></i> Daily Tracker</button>
-            </li>
-            <li class="nav-item" data-tab="tasks">
-                <button><i class="fa-solid fa-list-check"></i> Task Board</button>
-            </li>
-            <li class="nav-item" data-tab="skills">
-                <button><i class="fa-solid fa-award"></i> Skills Log</button>
-            </li>
-            <li class="nav-item" data-tab="feedback">
-                <button><i class="fa-solid fa-comments"></i> Supervisor Feedback</button>
-            </li>
-        </ul>
-
-        <div class="user-switcher">
-            <label for="current_intern">Current Intern</label>
-            <select id="current_intern" onchange="fetchData()">
-                <option value="SRIKAKULA ANIRUDH">SRIKAKULA ANIRUDH</option>
-                <option value="JAKKA BALAJI MAHENDRA">JAKKA BALAJI MAHENDRA</option>
-                <option value="MASARAPU BHUVAN SAI ADITHYA">MASARAPU BHUVAN SAI ADITHYA</option>
-                <option value="MOTEPALLI SHALINISREE">MOTEPALLI SHALINISREE</option>
-                <option value="VANSH GOYAL">VANSH GOYAL</option>
-            </select>
+        <!-- Sign Up View -->
+        <div id="signup-card" class="auth-card" style="display: none;">
+            <div class="auth-header">
+                <div class="auth-logo"><i class="fa-solid fa-user-plus"></i></div>
+                <h2>Create Account</h2>
+                <p>Register a new portal profile</p>
+            </div>
+            <form id="signupForm">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="signup_fullname">Full Name</label>
+                    <input type="text" id="signup_fullname" placeholder="e.g. Jakka Balaji Mahendra" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="signup_username">Username</label>
+                    <input type="text" id="signup_username" placeholder="e.g. j.balaji" required autocomplete="username">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="signup_password">Password</label>
+                    <input type="password" id="signup_password" placeholder="••••••••" required autocomplete="new-password">
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="signup_role">System Role</label>
+                    <select id="signup_role" required>
+                        <option value="Intern">Intern</option>
+                        <option value="Employee">Employee (Developer/Staff)</option>
+                        <option value="Manager">Manager (Supervisor)</option>
+                        <option value="Admin">Administrator</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">
+                    <i class="fa-solid fa-user-plus"></i> Register Profile
+                </button>
+            </form>
+            <div class="auth-toggle">
+                Already registered? <span onclick="toggleAuthView('login')">Sign In</span>
+            </div>
         </div>
-    </nav>
+    </div>
 
-    <!-- Main Content Area -->
-    <main class="main-content">
-        <header class="top-header">
-            <div>
-                <h2 id="tab-title">Internship Dashboard</h2>
-                <p id="tab-subtitle" style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Dynamic Summary Analytics</p>
-            </div>
-            <div class="status-pill">
-                <span class="status-dot"></span>
-                <span>Active Database</span>
-            </div>
-        </header>
 
-        <!-- Toast Container -->
-        <div id="toastContainer" class="toast-container"></div>
-
-        <!-- TAB: DASHBOARD -->
-        <section id="dashboard" class="tab-content active">
-            <!-- Stats KPIs -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
-                    <div>
-                        <div class="stat-value" id="stat-hours">0h</div>
-                        <div class="stat-label">Total Hours Logged</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
-                    <div>
-                        <div class="stat-value" id="stat-days">0</div>
-                        <div class="stat-label">Days Worked</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fa-solid fa-list-check"></i></div>
-                    <div>
-                        <div class="stat-value" id="stat-tasks">0</div>
-                        <div class="stat-label">Completed Tasks</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fa-solid fa-graduation-cap"></i></div>
-                    <div>
-                        <div class="stat-value" id="stat-skills">0</div>
-                        <div class="stat-label">Skills & Courses Logged</div>
-                    </div>
+    <!-- ================= MAIN PORTAL SYSTEM ================= -->
+    <div id="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="brand">
+                <div class="brand-logo"><i class="fa-solid fa-bolt"></i></div>
+                <div class="brand-title">
+                    <h1>Sanna Portal</h1>
+                    <p>Internship System</p>
                 </div>
             </div>
 
-            <!-- Dashboard Inner Content Grid -->
-            <div class="grid-3" style="grid-template-columns: 1.8fr 1.2fr; margin-bottom: 30px;">
-                <!-- Weekly Hours Summary -->
-                <div class="panel">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-table-columns"></i>
-                        <span>Weekly Hours & Milestone Summary</span>
-                    </div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Week</th>
-                                    <th>Hours</th>
-                                    <th>Days</th>
-                                    <th>Avg/Day</th>
-                                    <th>Deliverables</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dash-weekly-table">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <ul class="nav-list">
+                <li class="nav-item active" data-tab="dashboard">
+                    <button><i class="fa-solid fa-chart-pie"></i> Dashboard</button>
+                </li>
+                <!-- Intern / Employee only options -->
+                <li class="nav-item" data-tab="daily-logs" id="nav-logs">
+                    <button><i class="fa-solid fa-calendar-day"></i> Daily Tracker</button>
+                </li>
+                <li class="nav-item" data-tab="tasks">
+                    <button><i class="fa-solid fa-list-check"></i> Task Board</button>
+                </li>
+                <!-- Intern / Employee only options -->
+                <li class="nav-item" data-tab="skills" id="nav-skills">
+                    <button><i class="fa-solid fa-award"></i> Skills Log</button>
+                </li>
+                <li class="nav-item" data-tab="feedback">
+                    <button><i class="fa-solid fa-comments"></i> Reviews Log</button>
+                </li>
+            </ul>
 
-                <!-- Task Status Counts -->
-                <div class="panel">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-chart-bar"></i>
-                        <span>Task Status Summary</span>
-                    </div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Status</th>
-                                    <th>Count</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dash-task-status-table">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="user-profile-footer">
+                <div class="user-profile-info">
+                    <span class="profile-name" id="user-display-name">Loading...</span>
+                    <span class="profile-role">
+                        <span class="role-indicator-dot"></span>
+                        <span id="user-display-role">...</span>
+                    </span>
                 </div>
+                <button class="btn-logout" onclick="handleLogout()">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out
+                </button>
             </div>
+        </nav>
 
-            <!-- Mood trend -->
-            <div class="panel">
-                <div class="panel-title">
-                    <i class="fa-solid fa-face-smile"></i>
-                    <span>Mood Trend — Last 10 Logs</span>
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <div>
+                    <h2 id="tab-title">Internship Dashboard</h2>
+                    <p id="tab-subtitle" style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Dynamic Summary Analytics</p>
                 </div>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Mood Score</th>
-                                <th>Visual Rating</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dash-mood-table">
-                            <!-- Populated dynamically -->
-                        </tbody>
-                    </table>
+                <div class="status-pill">
+                    <span class="status-dot"></span>
+                    <span>Database Connected</span>
                 </div>
-            </div>
-        </section>
+            </header>
 
-
-        <!-- TAB: DAILY TRACKER (DAILY LOGS) -->
-        <section id="daily-logs" class="tab-content">
-            <div class="grid-2">
-                <!-- Log Entry Form -->
-                <div class="panel">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-square-plus"></i>
-                        <span>New Daily Entry</span>
-                    </div>
-                    <form id="logForm">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="log_date">Date</label>
-                                <input type="date" id="log_date" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="log_hours">Hours Worked</label>
-                                <select id="log_hours" required>
-                                    <option value="1">1 Hour</option>
-                                    <option value="2">2 Hours</option>
-                                    <option value="3">3 Hours</option>
-                                    <option value="4">4 Hours</option>
-                                    <option value="5">5 Hours</option>
-                                    <option value="6">6 Hours</option>
-                                    <option value="7">7 Hours</option>
-                                    <option value="8">8 Hours</option>
-                                    <option value="9">9 Hours</option>
-                                    <option value="10">10 Hours</option>
-                                </select>
-                            </div>
+            <!-- TAB: DASHBOARD -->
+            <section id="dashboard" class="tab-content active">
+                <!-- Admin/Manager filter picker (Hidden for Intern/Employee) -->
+                <div class="panel" id="dash-filter-panel" style="display: none; padding: 18px 24px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fa-solid fa-sliders" style="color: var(--primary); font-size: 18px;"></i>
+                            <span style="font-weight: 600; font-size: 15px;">Admin Overview Filters</span>
                         </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="log_checkin">Check-In</label>
-                                <input type="time" id="log_checkin" value="09:00">
-                            </div>
-                            <div class="form-group">
-                                <label for="log_checkout">Check-Out</label>
-                                <input type="time" id="log_checkout" value="18:00">
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="log_category">Task Category</label>
-                            <select id="log_category" required>
-                                <option value="Frontend Development">Frontend Development</option>
-                                <option value="Backend Development">Backend Development</option>
-                                <option value="Database Setup">Database Setup</option>
-                                <option value="Documentation">Documentation</option>
-                                <option value="Bug Fixing & QA">Bug Fixing & QA</option>
-                                <option value="Other">Other</option>
+                        <div style="display: flex; align-items: center; gap: 12px; min-width: 250px;">
+                            <label for="dash-user-filter" style="font-weight: 500; font-size: 13px; white-space: nowrap;">Track Intern / Employee:</label>
+                            <select id="dash-user-filter" onchange="renderDashboard()" style="padding: 8px 12px; font-size: 13px; border-radius: 8px;">
+                                <option value="ALL">All Active Users</option>
+                                <!-- Populated dynamically -->
                             </select>
                         </div>
-
-                        <div class="form-group">
-                            <label for="log_tasks">Tasks Completed Today</label>
-                            <textarea id="log_tasks" rows="3" placeholder="Describe the specific tasks you finished today..." required></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Deliverable Completed?</label>
-                            <select id="log_deliverable">
-                                <option value="Yes">Yes, complete</option>
-                                <option value="No">No, in progress</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="log_blockers">Blockers / Challenges (Optional)</label>
-                            <input type="text" id="log_blockers" placeholder="e.g. API authentication error">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="log_skills">Skills Used (Optional)</label>
-                            <input type="text" id="log_skills" placeholder="e.g. Python, SQL, REST APIs">
-                        </div>
-
-                        <div class="form-group">
-                            <label>Daily Mood (1-5)</label>
-                            <div class="rating-group" id="log_mood_group">
-                                <button type="button" class="rating-btn" data-value="1">1</button>
-                                <button type="button" class="rating-btn" data-value="2">2</button>
-                                <button type="button" class="rating-btn" data-value="3">3</button>
-                                <button type="button" class="rating-btn" data-value="4">4</button>
-                                <button type="button" class="rating-btn active" data-value="5">5</button>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="log_notes">Additional Notes</label>
-                            <textarea id="log_notes" rows="2" placeholder="Any extra supervisor details..."></textarea>
-                        </div>
-
-                        <button type="submit" class="btn-submit">
-                            <i class="fa-solid fa-paper-plane"></i> Save Daily Log
-                        </button>
-                    </form>
+                    </div>
                 </div>
 
-                <!-- Daily Log History -->
+                <!-- Stats KPIs -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+                        <div>
+                            <div class="stat-value" id="stat-hours">0h</div>
+                            <div class="stat-label">Total Hours Logged</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                        <div>
+                            <div class="stat-value" id="stat-days">0</div>
+                            <div class="stat-label">Days Worked</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fa-solid fa-list-check"></i></div>
+                        <div>
+                            <div class="stat-value" id="stat-tasks">0</div>
+                            <div class="stat-label">Completed Tasks</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+                        <div>
+                            <div class="stat-value" id="stat-skills">0</div>
+                            <div class="stat-label">Skills & Courses</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Inner Content Grid -->
+                <div class="grid-3" style="grid-template-columns: 1.8fr 1.2fr; margin-bottom: 30px;">
+                    <!-- Weekly Hours Summary -->
+                    <div class="panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-table-columns"></i>
+                            <span>Weekly Hours & Milestone Summary</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Week</th>
+                                        <th>Hours</th>
+                                        <th>Days</th>
+                                        <th>Avg/Day</th>
+                                        <th>Deliverables</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-weekly-table">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Task Status Counts -->
+                    <div class="panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-chart-bar"></i>
+                            <span>Task Status Summary</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Status</th>
+                                        <th>Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dash-task-status-table">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mood trend -->
                 <div class="panel">
                     <div class="panel-title">
-                        <i class="fa-solid fa-clock-rotate-left"></i>
-                        <span>Recent Activity Updates</span>
+                        <i class="fa-solid fa-face-smile"></i>
+                        <span>Mood Trend — Last 10 Logs</span>
                     </div>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
+                                    <th>Intern Username</th>
                                     <th>Date</th>
-                                    <th>Check-In</th>
-                                    <th>Check-Out</th>
-                                    <th>Hours</th>
-                                    <th>Category</th>
-                                    <th>Tasks Completed</th>
-                                    <th>Deliv?</th>
-                                    <th>Actions</th>
+                                    <th>Mood Score</th>
+                                    <th>Visual Rating</th>
                                 </tr>
                             </thead>
-                            <tbody id="logs-table-body">
+                            <tbody id="dash-mood-table">
                                 <!-- Populated dynamically -->
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
 
-        <!-- TAB: TASK TRACKER -->
-        <section id="tasks" class="tab-content">
-            <div class="grid-2">
-                <!-- Add Task Panel -->
-                <div class="panel">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-circle-plus"></i>
-                        <span>Create Project Task</span>
-                    </div>
-                    <form id="taskForm">
-                        <div class="form-group">
-                            <label for="task_name">Task Title</label>
-                            <input type="text" id="task_name" placeholder="e.g. Design user profiles screen" required>
+            <!-- TAB: DAILY TRACKER (DAILY LOGS) -->
+            <section id="daily-logs" class="tab-content">
+                <div class="grid-2">
+                    <!-- Log Entry Form -->
+                    <div class="panel" id="log-form-panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-square-plus"></i>
+                            <span>New Daily Entry</span>
                         </div>
+                        <form id="logForm">
+                            <!-- Show intern list selector ONLY for manager/admin logging on behalf -->
+                            <div class="form-group" id="log-behalf-group" style="display: none; margin-bottom: 12px;">
+                                <label for="log_intern_name">Log on behalf of Intern</label>
+                                <select id="log_intern_name">
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
 
-                        <div class="form-row">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="log_date">Date</label>
+                                    <input type="date" id="log_date" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="log_hours">Hours Worked</label>
+                                    <select id="log_hours" required>
+                                        <option value="1">1 Hour</option>
+                                        <option value="2">2 Hours</option>
+                                        <option value="3">3 Hours</option>
+                                        <option value="4">4 Hours</option>
+                                        <option value="5">5 Hours</option>
+                                        <option value="6">6 Hours</option>
+                                        <option value="7">7 Hours</option>
+                                        <option value="8">8 Hours</option>
+                                        <option value="9">9 Hours</option>
+                                        <option value="10">10 Hours</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="log_checkin">Check-In</label>
+                                    <input type="time" id="log_checkin" value="09:00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="log_checkout">Check-Out</label>
+                                    <input type="time" id="log_checkout" value="18:00">
+                                </div>
+                            </div>
+
                             <div class="form-group">
-                                <label for="task_category">Category</label>
-                                <select id="task_category">
-                                    <option value="Frontend">Frontend Dev</option>
-                                    <option value="Backend">Backend API</option>
-                                    <option value="Database">Database Schema</option>
-                                    <option value="DevOps">Deployment / DevOps</option>
+                                <label for="log_category">Task Category</label>
+                                <select id="log_category" required>
+                                    <option value="Frontend Development">Frontend Development</option>
+                                    <option value="Backend Development">Backend Development</option>
+                                    <option value="Database Setup">Database Setup</option>
                                     <option value="Documentation">Documentation</option>
-                                    <option value="Design">UI/UX Design</option>
+                                    <option value="Bug Fixing & QA">Bug Fixing & QA</option>
+                                    <option value="Other">Other</option>
                                 </select>
                             </div>
+
                             <div class="form-group">
-                                <label for="task_priority">Priority</label>
-                                <select id="task_priority">
-                                    <option value="High">High</option>
-                                    <option value="Medium" selected>Medium</option>
-                                    <option value="Low">Low</option>
+                                <label for="log_tasks">Tasks Completed Today</label>
+                                <textarea id="log_tasks" rows="3" placeholder="Describe the specific tasks you finished today..." required></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Deliverable Completed?</label>
+                                <select id="log_deliverable">
+                                    <option value="Yes">Yes, complete</option>
+                                    <option value="No">No, in progress</option>
                                 </select>
                             </div>
-                        </div>
 
-                        <div class="form-row">
                             <div class="form-group">
-                                <label for="task_due">Due Date</label>
-                                <input type="date" id="task_due">
+                                <label for="log_blockers">Blockers / Challenges (Optional)</label>
+                                <input type="text" id="log_blockers" placeholder="e.g. API authentication error">
                             </div>
+
                             <div class="form-group">
-                                <label for="task_assigned_by">Assigned By</label>
-                                <input type="text" id="task_assigned_by" placeholder="e.g. Mentor Naveen">
+                                <label for="log_skills">Skills Used (Optional)</label>
+                                <input type="text" id="log_skills" placeholder="e.g. Python, SQL, REST APIs">
                             </div>
-                        </div>
 
-                        <div class="form-group">
-                            <label for="task_notes">Task Description</label>
-                            <textarea id="task_notes" rows="3" placeholder="Provide extra detail about this deliverables objective..."></textarea>
-                        </div>
+                            <div class="form-group">
+                                <label>Daily Mood (1-5)</label>
+                                <div class="rating-group" id="log_mood_group">
+                                    <button type="button" class="rating-btn" data-value="1">1</button>
+                                    <button type="button" class="rating-btn" data-value="2">2</button>
+                                    <button type="button" class="rating-btn" data-value="3">3</button>
+                                    <button type="button" class="rating-btn" data-value="4">4</button>
+                                    <button type="button" class="rating-btn active" data-value="5">5</button>
+                                </div>
+                            </div>
 
-                        <button type="submit" class="btn-submit">
-                            <i class="fa-solid fa-list-check"></i> Assign Task
-                        </button>
-                    </form>
-                </div>
+                            <div class="form-group">
+                                <label for="log_notes">Additional Notes</label>
+                                <textarea id="log_notes" rows="2" placeholder="Any extra supervisor details..."></textarea>
+                            </div>
 
-                <!-- Active Tasks Log -->
-                <div class="panel" style="grid-column: span 1;">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-list-ol"></i>
-                        <span>Task Backlog</span>
+                            <button type="submit" class="btn-submit">
+                                <i class="fa-solid fa-paper-plane"></i> Save Daily Log
+                            </button>
+                        </form>
                     </div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Task</th>
-                                    <th>Priority</th>
-                                    <th>Due Date</th>
-                                    <th>Status</th>
-                                    <th>% Done</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tasks-table-body">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </section>
 
-
-        <!-- TAB: SKILLS LOG -->
-        <section id="skills" class="tab-content">
-            <div class="grid-2">
-                <!-- Log Course/Skill Panel -->
-                <div class="panel">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-graduation-cap"></i>
-                        <span>Log Skill / Course Learning</span>
-                    </div>
-                    <form id="skillForm">
-                        <div class="form-group">
-                            <label for="skill_tool">Skill / Tool Learned</label>
-                            <input type="text" id="skill_tool" placeholder="e.g. Power BI, Docker, SQL optimization" required>
+                    <!-- Daily Log History -->
+                    <div class="panel" id="logs-history-panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <span>Activity Updates Log</span>
                         </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="skill_category">Category</label>
-                                <select id="skill_category">
-                                    <option value="SQL">SQL & Database</option>
-                                    <option value="Python">Python programming</option>
-                                    <option value="Power BI">Power BI & Analytics</option>
-                                    <option value="Machine Learning">Machine Learning</option>
-                                    <option value="Data Visualization">Data Visualization</option>
-                                    <option value="DevOps">CI/CD & DevOps</option>
-                                    <option value="Other">Other Skills</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="skill_hours">Hours Devoted</label>
-                                <input type="number" id="skill_hours" step="0.5" min="0.5" placeholder="e.g. 4" required>
-                            </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Intern</th>
+                                        <th>Date</th>
+                                        <th>In</th>
+                                        <th>Out</th>
+                                        <th>Hours</th>
+                                        <th>Tasks Completed</th>
+                                        <th>Deliv?</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logs-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
                         </div>
-
-                        <div class="form-group">
-                            <label for="skill_resource">Resource / Course Used</label>
-                            <input type="text" id="skill_resource" placeholder="e.g. Coursera, Microsoft Learn, Self Study">
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="skill_before">Proficiency Before (1-5)</label>
-                                <select id="skill_before">
-                                    <option value="1">1 - Novice</option>
-                                    <option value="2">2 - Beginner</option>
-                                    <option value="3">3 - Intermediate</option>
-                                    <option value="4">4 - Advanced</option>
-                                    <option value="5">5 - Expert</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="skill_after">Proficiency After (1-5)</label>
-                                <select id="skill_after">
-                                    <option value="1">1 - Novice</option>
-                                    <option value="2">2 - Beginner</option>
-                                    <option value="3">3 - Intermediate</option>
-                                    <option value="4">4 - Advanced</option>
-                                    <option value="5">5 - Expert</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Received Certification?</label>
-                            <select id="skill_cert">
-                                <option value="No">No</option>
-                                <option value="Yes">Yes</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="skill_notes">Review Notes</label>
-                            <textarea id="skill_notes" rows="2" placeholder="Key takeaways or practical projects applied..."></textarea>
-                        </div>
-
-                        <button type="submit" class="btn-submit">
-                            <i class="fa-solid fa-medal"></i> Save Skill Entry
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Learning Log Table -->
-                <div class="panel">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-book-bookmark"></i>
-                        <span>Skills Inventory</span>
-                    </div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Skill</th>
-                                    <th>Category</th>
-                                    <th>Resource</th>
-                                    <th>Hours</th>
-                                    <th>Proficiency (B → A)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="skills-table-body">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
 
-        <!-- TAB: MENTOR FEEDBACK -->
-        <section id="feedback" class="tab-content">
-            <div class="grid-2">
-                <!-- Log Feedback Form -->
-                <div class="panel">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-comments"></i>
-                        <span>Record Supervisor Feedback</span>
+            <!-- TAB: TASK TRACKER -->
+            <section id="tasks" class="tab-content">
+                <div class="grid-2">
+                    <!-- Add Task Panel (Hidden for Interns) -->
+                    <div class="panel" id="task-assign-panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-circle-plus"></i>
+                            <span>Create Project Task</span>
+                        </div>
+                        <form id="taskForm">
+                            <div class="form-group">
+                                <label for="task_intern_name">Assign To User</label>
+                                <select id="task_intern_name" required>
+                                    <!-- Populated dynamically based on role -->
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="task_name">Task Title</label>
+                                <input type="text" id="task_name" placeholder="e.g. Design user profiles screen" required>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="task_category">Category</label>
+                                    <select id="task_category">
+                                        <option value="Frontend">Frontend Dev</option>
+                                        <option value="Backend">Backend API</option>
+                                        <option value="Database">Database Schema</option>
+                                        <option value="DevOps">Deployment / DevOps</option>
+                                        <option value="Documentation">Documentation</option>
+                                        <option value="Design">UI/UX Design</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="task_priority">Priority</label>
+                                    <select id="task_priority">
+                                        <option value="High">High</option>
+                                        <option value="Medium" selected>Medium</option>
+                                        <option value="Low">Low</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="task_due">Due Date</label>
+                                    <input type="date" id="task_due">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="task_notes">Task Description</label>
+                                <textarea id="task_notes" rows="3" placeholder="Provide extra details for this task objective..."></textarea>
+                            </div>
+
+                            <button type="submit" class="btn-submit">
+                                <i class="fa-solid fa-list-check"></i> Assign Task
+                            </button>
+                        </form>
                     </div>
-                    <form id="feedbackForm">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="fb_date">Date Received</label>
-                                <input type="date" id="fb_date" required>
+
+                    <!-- Active Tasks Log -->
+                    <div class="panel" id="tasks-list-panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-list-ol"></i>
+                            <span>Task Backlog</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Intern</th>
+                                        <th>Task</th>
+                                        <th>Priority</th>
+                                        <th>Due Date</th>
+                                        <th>Status</th>
+                                        <th>% Done</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tasks-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- TAB: SKILLS LOG -->
+            <section id="skills" class="tab-content">
+                <div class="grid-2">
+                    <!-- Log Course/Skill Panel -->
+                    <div class="panel" id="skills-form-panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                            <span>Log Skill / Course Learning</span>
+                        </div>
+                        <form id="skillForm">
+                            <!-- Only Manager/Admin can log on behalf -->
+                            <div class="form-group" id="skill-behalf-group" style="display: none; margin-bottom: 12px;">
+                                <label for="skill_intern_name">Log on behalf of Intern</label>
+                                <select id="skill_intern_name">
+                                    <!-- Populated dynamically -->
+                                </select>
                             </div>
+
                             <div class="form-group">
-                                <label for="fb_from">Feedback From</label>
-                                <input type="text" id="fb_from" placeholder="e.g. Mentor Naveen" required>
+                                <label for="skill_tool">Skill / Tool Learned</label>
+                                <input type="text" id="skill_tool" placeholder="e.g. Power BI, Docker, SQL optimization" required>
                             </div>
-                        </div>
 
-                        <div class="form-group">
-                            <label for="fb_type">Review Type</label>
-                            <select id="fb_type">
-                                <option value="1-on-1 Session">1-on-1 Session</option>
-                                <option value="Weekly Review">Weekly Review</option>
-                                <option value="Project Review">Project Review</option>
-                                <option value="Mid-Term Review">Mid-Term Appraisal</option>
-                                <option value="Informal Feedback">Informal / Ad-hoc</option>
-                            </select>
-                        </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="skill_category">Category</label>
+                                    <select id="skill_category">
+                                        <option value="SQL">SQL & Database</option>
+                                        <option value="Python">Python programming</option>
+                                        <option value="Power BI">Power BI & Analytics</option>
+                                        <option value="Machine Learning">Machine Learning</option>
+                                        <option value="Data Visualization">Data Visualization</option>
+                                        <option value="DevOps">CI/CD & DevOps</option>
+                                        <option value="Other">Other Skills</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="skill_hours">Hours Devoted</label>
+                                    <input type="number" id="skill_hours" step="0.5" min="0.5" placeholder="e.g. 4" required>
+                                </div>
+                            </div>
 
-                        <div class="form-group">
-                            <label for="fb_summary">Feedback Summary</label>
-                            <textarea id="fb_summary" rows="3" placeholder="Key topics discussed and general review..." required></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="fb_strengths">Strengths Noted</label>
-                            <textarea id="fb_strengths" rows="2" placeholder="Key points where you performed well..."></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="fb_improve">Areas to Improve</label>
-                            <textarea id="fb_improve" rows="2" placeholder="Identified developmental areas..."></textarea>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="fb_action">Action Items / Plans</label>
-                            <textarea id="fb_action" rows="2" placeholder="Steps agreed to address feedback..."></textarea>
-                        </div>
-
-                        <div class="form-row">
                             <div class="form-group">
-                                <label>Follow-Up Scheduled?</label>
-                                <select id="fb_followup">
+                                <label for="skill_resource">Resource / Course Used</label>
+                                <input type="text" id="skill_resource" placeholder="e.g. Coursera, Microsoft Learn, Self Study">
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="skill_before">Proficiency Before (1-5)</label>
+                                    <select id="skill_before">
+                                        <option value="1">1 - Novice</option>
+                                        <option value="2">2 - Beginner</option>
+                                        <option value="3">3 - Intermediate</option>
+                                        <option value="4">4 - Advanced</option>
+                                        <option value="5">5 - Expert</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="skill_after">Proficiency After (1-5)</label>
+                                    <select id="skill_after">
+                                        <option value="1">1 - Novice</option>
+                                        <option value="2">2 - Beginner</option>
+                                        <option value="3">3 - Intermediate</option>
+                                        <option value="4">4 - Advanced</option>
+                                        <option value="5">5 - Expert</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Received Certification?</label>
+                                <select id="skill_cert">
                                     <option value="No">No</option>
                                     <option value="Yes">Yes</option>
                                 </select>
                             </div>
+
                             <div class="form-group">
-                                <label for="fb_followdate">Follow-Up Date</label>
-                                <input type="date" id="fb_followdate">
+                                <label for="skill_notes">Review Notes</label>
+                                <textarea id="skill_notes" rows="2" placeholder="Key takeaways or practical projects applied..."></textarea>
                             </div>
+
+                            <button type="submit" class="btn-submit">
+                                <i class="fa-solid fa-medal"></i> Save Skill Entry
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Learning Log Table -->
+                    <div class="panel" id="skills-list-panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-book-bookmark"></i>
+                            <span>Skills Inventory</span>
                         </div>
-
-                        <button type="submit" class="btn-submit">
-                            <i class="fa-solid fa-comment-dots"></i> Save Feedback Review
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Feedback Reviews Inventory -->
-                <div class="panel">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-list-ol"></i>
-                        <span>Supervisor Review History</span>
-                    </div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>From</th>
-                                    <th>Type</th>
-                                    <th>Summary</th>
-                                    <th>Strengths / Areas</th>
-                                </tr>
-                            </thead>
-                            <tbody id="feedback-table-body">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Intern</th>
+                                        <th>Skill</th>
+                                        <th>Category</th>
+                                        <th>Resource</th>
+                                        <th>Hours</th>
+                                        <th>Proficiency (B → A)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="skills-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </section>
-    </main>
+            </section>
+
+
+            <!-- TAB: MENTOR FEEDBACK -->
+            <section id="feedback" class="tab-content">
+                <div class="grid-2">
+                    <!-- Log Feedback Form (Hidden for Interns) -->
+                    <div class="panel" id="feedback-form-panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-comments"></i>
+                            <span>Record Supervisor Feedback</span>
+                        </div>
+                        <form id="feedbackForm">
+                            <div class="form-group">
+                                <label for="fb_intern_name">Target User (Employee / Intern)</label>
+                                <select id="fb_intern_name" required>
+                                    <!-- Populated dynamically based on role -->
+                                </select>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="fb_date">Date Received</label>
+                                    <input type="date" id="fb_date" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="fb_type">Review Type</label>
+                                <select id="fb_type">
+                                    <option value="1-on-1 Session">1-on-1 Session</option>
+                                    <option value="Weekly Review">Weekly Review</option>
+                                    <option value="Project Review">Project Review</option>
+                                    <option value="Mid-Term Review">Mid-Term Appraisal</option>
+                                    <option value="Informal Feedback">Informal / Ad-hoc</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="fb_summary">Feedback Summary</label>
+                                <textarea id="fb_summary" rows="3" placeholder="Key topics discussed and general review..." required></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="fb_strengths">Strengths Noted</label>
+                                <textarea id="fb_strengths" rows="2" placeholder="Key points where they performed well..."></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="fb_improve">Areas to Improve</label>
+                                <textarea id="fb_improve" rows="2" placeholder="Identified developmental areas..."></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="fb_action">Action Items / Plans</label>
+                                <textarea id="fb_action" rows="2" placeholder="Steps agreed to address feedback..."></textarea>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Follow-Up Scheduled?</label>
+                                    <select id="fb_followup">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="fb_followdate">Follow-Up Date</label>
+                                    <input type="date" id="fb_followdate">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-submit">
+                                <i class="fa-solid fa-comment-dots"></i> Save Feedback Review
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Feedback Reviews Inventory -->
+                    <div class="panel" id="feedback-list-panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-list-ol"></i>
+                            <span>Supervisor Review History</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Target Intern</th>
+                                        <th>Date</th>
+                                        <th>From</th>
+                                        <th>Type</th>
+                                        <th>Summary</th>
+                                        <th>Strengths / Areas</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="feedback-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script>
-        // API connection config: dynamically toggle relative path vs localhost depending on host
+        // API connection config
         const API_URL = window.location.protocol === 'file:' ? 'http://127.0.0.1:5000' : '';
         
         // Cache object holding current state
+        let currentUser = null;
+        let activeUsers = []; // Stores list of users dynamically fetched
+        
         let state = {
             logs: [],
             tasks: [],
@@ -1173,8 +1389,47 @@
             feedback: []
         };
 
-        // Intern Start Date for Week Grouping calculations (Excel: Start Date 22-Jun-2026)
         const START_DATE = new Date("2026-06-22");
+
+        // Helper: Fetch API wrapper with credentials (cookies)
+        async function apiFetch(endpoint, options = {}) {
+            options.credentials = 'include';
+            if (options.body && typeof options.body === 'object') {
+                options.body = JSON.stringify(options.body);
+                options.headers = options.headers || {};
+                options.headers['Content-Type'] = 'application/json';
+            }
+            const res = await fetch(`${API_URL}${endpoint}`, options);
+            if (res.status === 401) {
+                // Not authenticated, show auth view
+                showAuthOverlay();
+                throw new Error("Unauthorized access");
+            }
+            return res;
+        }
+
+        // Toggle Sign In vs Sign Up views
+        function toggleAuthView(view) {
+            if (view === 'signup') {
+                document.getElementById('login-card').style.display = 'none';
+                document.getElementById('signup-card').style.display = 'flex';
+            } else {
+                document.getElementById('signup-card').style.display = 'none';
+                document.getElementById('login-card').style.display = 'flex';
+            }
+        }
+
+        // Show Auth Overlay
+        function showAuthOverlay() {
+            document.getElementById('app-container').style.display = 'none';
+            document.getElementById('auth-container').style.display = 'flex';
+        }
+
+        // Hide Auth Overlay
+        function hideAuthOverlay() {
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+        }
 
         // UI Tabs Navigator
         document.querySelectorAll('.nav-item').forEach(item => {
@@ -1186,7 +1441,6 @@
                 const tabId = item.dataset.tab;
                 document.getElementById(tabId).classList.add('active');
 
-                // Update Title headers
                 const titles = {
                     'dashboard': 'Internship Dashboard',
                     'daily-logs': 'Daily Logs Tracker',
@@ -1220,40 +1474,6 @@
             });
         });
 
-        // Automatically calculate hours from check-in/out
-        function autoCalculateHours() {
-            const checkinVal = document.getElementById('log_checkin').value;
-            const checkoutVal = document.getElementById('log_checkout').value;
-            if (!checkinVal || !checkoutVal) return;
-
-            const [inH, inM] = checkinVal.split(':').map(Number);
-            const [outH, outM] = checkoutVal.split(':').map(Number);
-
-            let diffMin = (outH * 60 + outM) - (inH * 60 + inM);
-            if (diffMin < 0) {
-                diffMin += 24 * 60; // Handle overnight shifts
-            }
-
-            const diffHours = diffMin / 60;
-            const roundedHours = Math.min(Math.max(Math.round(diffHours), 1), 10);
-            
-            document.getElementById('log_hours').value = roundedHours.toString();
-        }
-
-        document.getElementById('log_checkin').addEventListener('change', autoCalculateHours);
-        document.getElementById('log_checkin').addEventListener('input', autoCalculateHours);
-        document.getElementById('log_checkout').addEventListener('change', autoCalculateHours);
-        document.getElementById('log_checkout').addEventListener('input', autoCalculateHours);
-        autoCalculateHours(); // Run once initially
-
-        // Make clicking anywhere inside the time input box trigger the browser timepicker popup
-        document.getElementById('log_checkin').addEventListener('click', function() {
-            try { this.showPicker(); } catch(e) {}
-        });
-        document.getElementById('log_checkout').addEventListener('click', function() {
-            try { this.showPicker(); } catch(e) {}
-        });
-
         // Toast alert builder
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
@@ -1268,35 +1488,124 @@
             }, 3500);
         }
 
-        // Fetch everything from SQLite
-        async function fetchData() {
-            const currentIntern = document.getElementById('current_intern').value;
-            
+        // Check authentication status on startup
+        async function checkAuth() {
             try {
-                // Fetch Daily Logs
-                const resLogs = await fetch(`${API_URL}/logs`);
-                const allLogs = await resLogs.json();
-                state.logs = allLogs.filter(l => l.intern_name === currentIntern);
+                const res = await apiFetch('/current_user');
+                if (res.ok) {
+                    currentUser = await res.json();
+                    setupPortalForRole();
+                    fetchData();
+                } else {
+                    showAuthOverlay();
+                }
+            } catch (err) {
+                showAuthOverlay();
+            }
+        }
 
-                // Fetch Tasks
-                const resTasks = await fetch(`${API_URL}/tasks`);
-                const allTasks = await resTasks.json();
-                state.tasks = allTasks.filter(t => t.intern_name === currentIntern);
+        // Setup layouts, forms and sidebars based on logged-in user's role
+        function setupPortalForRole() {
+            hideAuthOverlay();
+            
+            // Set user profile footer info
+            document.getElementById('user-display-name').innerText = currentUser.full_name;
+            document.getElementById('user-display-role').innerText = currentUser.role;
 
-                // Fetch Skills
-                const resSkills = await fetch(`${API_URL}/skills`);
-                const allSkills = await resSkills.json();
-                state.skills = allSkills.filter(s => s.intern_name === currentIntern);
+            // Enforce visibility of navigation options
+            if (currentUser.role === 'Intern' || currentUser.role === 'Employee') {
+                document.getElementById('nav-logs').style.display = 'block';
+                document.getElementById('nav-skills').style.display = 'block';
+                
+                // Hide assignment forms and expand backlogs/lists full-width
+                document.getElementById('task-assign-panel').style.display = 'none';
+                document.getElementById('tasks-list-panel').style.gridColumn = 'span 2';
+                
+                document.getElementById('feedback-form-panel').style.display = 'none';
+                document.getElementById('feedback-list-panel').style.gridColumn = 'span 2';
 
-                // Fetch Feedback
-                const resFeedback = await fetch(`${API_URL}/feedback`);
-                const allFeedback = await resFeedback.json();
-                state.feedback = allFeedback.filter(f => f.intern_name === currentIntern);
+                document.getElementById('dash-filter-panel').style.display = 'none';
+            } else {
+                // Admin or Manager
+                // They don't log personal hours, so hide Daily Tracker and Skills Log navigation tabs
+                document.getElementById('nav-logs').style.display = 'none';
+                document.getElementById('nav-skills').style.display = 'none';
 
-                // Update server state badge to online
-                document.querySelector('.status-pill').innerHTML = '<span class="status-dot"></span><span>Database Connected</span>';
-                document.querySelector('.status-pill').style.color = 'var(--success)';
-                document.querySelector('.status-pill').style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                // Show assignment panels
+                document.getElementById('task-assign-panel').style.display = 'block';
+                document.getElementById('tasks-list-panel').style.gridColumn = 'span 1';
+                
+                document.getElementById('feedback-form-panel').style.display = 'block';
+                document.getElementById('feedback-list-panel').style.gridColumn = 'span 1';
+
+                // Show Admin Overview filter panel on Dashboard
+                document.getElementById('dash-filter-panel').style.display = 'block';
+            }
+
+            // Populate assignment select options dynamically
+            populateDropdowns();
+        }
+
+        // Populate dropdown selectors dynamically from backend users list
+        async function populateDropdowns() {
+            try {
+                const res = await apiFetch('/users');
+                activeUsers = await res.json();
+
+                // 1. Dashboard Filter options (Interns + Employees)
+                const dashFilter = document.getElementById('dash-user-filter');
+                dashFilter.innerHTML = '<option value="ALL">All Active Users</option>';
+                
+                // 2. Task Assign To selector
+                const taskSelect = document.getElementById('task_intern_name');
+                taskSelect.innerHTML = '<option value="">Choose target user...</option>';
+
+                // 3. Feedback Target selector
+                const fbSelect = document.getElementById('fb_intern_name');
+                fbSelect.innerHTML = '<option value="">Choose target user...</option>';
+
+                activeUsers.forEach(u => {
+                    // Filter options: Manager can assign tasks to Employees/Interns. Employees only to Interns.
+                    const optionHtml = `<option value="${u.username}">${escapeHTML(u.full_name)} (${u.role})</option>`;
+                    
+                    if (u.role === 'Intern' || u.role === 'Employee') {
+                        dashFilter.innerHTML += optionHtml;
+                    }
+
+                    if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
+                        // Manager/Admin can assign to Employees/Interns
+                        if (u.role === 'Employee' || u.role === 'Intern') {
+                            taskSelect.innerHTML += optionHtml;
+                            fbSelect.innerHTML += optionHtml;
+                        }
+                    } else if (currentUser.role === 'Employee') {
+                        // Employees can only assign/log feedback for Interns
+                        if (u.role === 'Intern') {
+                            taskSelect.innerHTML += optionHtml;
+                            fbSelect.innerHTML += optionHtml;
+                        }
+                    }
+                });
+
+            } catch (err) {
+                console.error("Failed to load user rosters for dropdowns", err);
+            }
+        }
+
+        // Fetch logs, tasks, skills, feedback
+        async function fetchData() {
+            try {
+                const resLogs = await apiFetch('/logs');
+                state.logs = await resLogs.json();
+
+                const resTasks = await apiFetch('/tasks');
+                state.tasks = await resTasks.json();
+
+                const resSkills = await apiFetch('/skills');
+                state.skills = await resSkills.json();
+
+                const resFeedback = await apiFetch('/feedback');
+                state.feedback = await resFeedback.json();
 
                 // Render views
                 renderDashboard();
@@ -1306,21 +1615,31 @@
                 renderFeedback();
 
             } catch (err) {
-                console.error(err);
-                document.querySelector('.status-pill').innerHTML = '<span class="status-dot" style="background-color: var(--danger); box-shadow: 0 0 8px var(--danger);"></span><span>Database Offline</span>';
-                document.querySelector('.status-pill').style.color = 'var(--danger)';
-                document.querySelector('.status-pill').style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                showToast("Failed to fetch database records. Is the Flask server active?", "error");
+                console.error("Fetch Data failed", err);
             }
         }
 
-        // Render Dashboard tab analytics
+        // Render Dashboard KPIs & Tables
         function renderDashboard() {
-            // 1. KPIs
-            const totalHours = state.logs.reduce((sum, item) => sum + parseFloat(item.hours_worked || 0), 0);
-            const daysWorked = new Set(state.logs.map(item => item.date_logged)).size;
-            const completedTasks = state.tasks.filter(t => t.status === 'Completed').length;
-            const skillsLogged = state.skills.length;
+            let filteredLogs = [...state.logs];
+            let filteredTasks = [...state.tasks];
+            let filteredSkills = [...state.skills];
+
+            // If Admin/Manager is logged in, they can filter the stats by a selected user
+            if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
+                const userVal = document.getElementById('dash-user-filter').value;
+                if (userVal !== 'ALL') {
+                    filteredLogs = filteredLogs.filter(l => l.intern_name === userVal);
+                    filteredTasks = filteredTasks.filter(t => t.intern_name === userVal);
+                    filteredSkills = filteredSkills.filter(s => s.intern_name === userVal);
+                }
+            }
+
+            // 1. Calculate KPIs
+            const totalHours = filteredLogs.reduce((sum, item) => sum + parseFloat(item.hours_worked || 0), 0);
+            const daysWorked = new Set(filteredLogs.map(item => item.date_logged)).size;
+            const completedTasks = filteredTasks.filter(t => t.status === 'Completed').length;
+            const skillsLogged = filteredSkills.length;
 
             document.getElementById('stat-hours').innerText = `${totalHours.toFixed(1)}h`;
             document.getElementById('stat-days').innerText = daysWorked;
@@ -1335,10 +1654,8 @@
                 'On Hold': 0,
                 'Cancelled': 0
             };
-            state.tasks.forEach(t => {
-                if (taskCounts[t.status] !== undefined) {
-                    taskCounts[t.status]++;
-                }
+            filteredTasks.forEach(t => {
+                if (taskCounts[t.status] !== undefined) taskCounts[t.status]++;
             });
             const taskTableBody = document.getElementById('dash-task-status-table');
             taskTableBody.innerHTML = '';
@@ -1357,15 +1674,13 @@
                 taskTableBody.appendChild(tr);
             });
 
-            // 3. Dynamic Weekly Summary Table
-            // Grouping logic: Weeks start from START_DATE (Monday 22-Jun-2026)
-            // Week 1 = Jun 22 - Jun 28, Week 2 = Jun 29 - Jul 5, etc.
+            // 3. Weekly Hours Table
             const weeklyData = {};
             for (let w = 1; w <= 12; w++) {
                 weeklyData[w] = { hours: 0, days: new Set(), deliverables: 0 };
             }
 
-            state.logs.forEach(log => {
+            filteredLogs.forEach(log => {
                 const logDate = new Date(log.date_logged);
                 const diffTime = logDate - START_DATE;
                 if (diffTime >= 0) {
@@ -1383,7 +1698,7 @@
 
             const weeklyTableBody = document.getElementById('dash-weekly-table');
             weeklyTableBody.innerHTML = '';
-            for (let w = 1; w <= 6; w++) {  // Showing 6 weeks as per Excel mockup template
+            for (let w = 1; w <= 6; w++) {
                 const weekInfo = weeklyData[w];
                 const daysCount = weekInfo.days.size;
                 const hoursVal = weekInfo.hours;
@@ -1406,22 +1721,27 @@
             // 4. Mood Trend Table (Last 10 Logs)
             const moodTableBody = document.getElementById('dash-mood-table');
             moodTableBody.innerHTML = '';
-            const last10Logs = [...state.logs]
+            const last10Logs = [...filteredLogs]
                 .sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged))
                 .slice(0, 10);
             
             if (last10Logs.length === 0) {
-                moodTableBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">No logs logged yet to map mood.</td></tr>';
+                moodTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No logs logged yet.</td></tr>';
             } else {
                 last10Logs.forEach(log => {
                     const moodVal = log.mood || 5;
-                    const percent = moodVal * 20; // convert 1-5 to 20-100%
+                    const percent = moodVal * 20;
                     let fillCol = 'var(--danger)';
                     if (moodVal >= 4) fillCol = 'var(--success)';
                     else if (moodVal >= 3) fillCol = 'var(--warning)';
 
+                    // Find full name from username mapping
+                    const userObj = activeUsers.find(u => u.username === log.intern_name);
+                    const displayName = userObj ? userObj.full_name : log.intern_name;
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
+                        <td style="font-weight:600;">${escapeHTML(displayName)}</td>
                         <td>${log.date_logged}</td>
                         <td style="font-weight:700;">${moodVal} / 5</td>
                         <td>
@@ -1434,56 +1754,67 @@
             }
         }
 
-        // Render Logs tab list
+        // Render Logs table list
         function renderLogs() {
             const tbody = document.getElementById('logs-table-body');
             tbody.innerHTML = '';
             if (state.logs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No activity logs entered.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No activity logs entered.</td></tr>';
                 return;
             }
             state.logs.forEach(log => {
+                const userObj = activeUsers.find(u => u.username === log.intern_name);
+                const displayName = userObj ? userObj.full_name : log.intern_name;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
+                    <td style="font-weight: 600;">${escapeHTML(displayName)}</td>
                     <td>${log.date_logged}</td>
                     <td>${log.check_in || '-'}</td>
                     <td>${log.check_out || '-'}</td>
                     <td style="font-weight:700;">${log.hours_worked} hrs</td>
-                    <td><span class="badge badge-primary">${escapeHTML(log.task_category || 'Other')}</span></td>
                     <td>
                         <strong>${escapeHTML(log.tasks_completed)}</strong>
                         ${log.blockers && log.blockers !== 'None' && log.blockers !== '' ? `<div style="color:var(--danger); font-size:12px; margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(log.blockers)}</div>` : ''}
                     </td>
                     <td><span class="badge ${log.deliverable_completed === 'Yes' ? 'badge-success' : 'badge-warning'}">${log.deliverable_completed || 'No'}</span></td>
-                    <td class="actions-cell">
-                        <button onclick="deleteLog(${log.id})" class="btn-action delete" title="Delete Log"><i class="fa-solid fa-trash"></i></button>
-                    </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        // Render Tasks tab list
+        // Render Tasks table list
         function renderTasks() {
             const tbody = document.getElementById('tasks-table-body');
             tbody.innerHTML = '';
             if (state.tasks.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No tasks in backlog.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No tasks in backlog.</td></tr>';
                 return;
             }
             state.tasks.forEach(t => {
+                const targetUserObj = activeUsers.find(u => u.username === t.intern_name);
+                const targetName = targetUserObj ? targetUserObj.full_name : t.intern_name;
+
+                const assignerObj = activeUsers.find(u => u.username === t.assigned_by);
+                const assignerName = assignerObj ? assignerObj.full_name : t.assigned_by;
+
                 const tr = document.createElement('tr');
                 const isCompleted = t.status === 'Completed';
                 
+                // Assigner can delete task, or admins/managers.
+                const canDelete = currentUser.role === 'Admin' || currentUser.role === 'Manager' || t.assigned_by === currentUser.username;
+                const deleteButton = canDelete ? `<button onclick="deleteTask('${t.id}')" class="btn-action delete" title="Delete Task"><i class="fa-solid fa-trash"></i></button>` : '';
+
                 tr.innerHTML = `
+                    <td style="font-weight:600;">${escapeHTML(targetName)}</td>
                     <td>
                         <strong style="${isCompleted ? 'text-decoration: line-through; color: var(--text-muted);' : ''}">${escapeHTML(t.task_name)}</strong>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">By ${escapeHTML(t.assigned_by || 'Manager')}</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">By ${escapeHTML(assignerName || 'Supervisor')}</div>
                     </td>
                     <td><span class="badge ${t.priority === 'High' ? 'badge-danger' : (t.priority === 'Low' ? 'badge-primary' : 'badge-warning')}">${t.priority}</span></td>
                     <td>${t.due_date || '-'}</td>
                     <td>
-                        <select onchange="updateTaskStatus(${t.id}, this.value)" style="padding: 6px 10px; font-size:12px; border-radius:6px; width:auto; background:rgba(255,255,255,0.02)">
+                        <select onchange="updateTaskStatus('${t.id}', this.value)" style="padding: 6px 10px; font-size:12px; border-radius:6px; width:auto; background:rgba(255,255,255,0.02)">
                             <option value="Not Started" ${t.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
                             <option value="In Progress" ${t.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
                             <option value="Completed" ${t.status === 'Completed' ? 'selected' : ''}>Completed</option>
@@ -1493,28 +1824,32 @@
                     </td>
                     <td>
                         <input type="number" value="${t.percent_done || 0}" min="0" max="100" step="10" 
-                               onchange="updateTaskPercent(${t.id}, this.value)" 
+                               onchange="updateTaskPercent('${t.id}', this.value)" 
                                style="width: 70px; padding: 6px; font-size:12px; border-radius:6px; background:rgba(255,255,255,0.02); text-align:center;">
                     </td>
                     <td class="actions-cell">
-                        <button onclick="deleteTask(${t.id})" class="btn-action delete" title="Delete Task"><i class="fa-solid fa-trash"></i></button>
+                        ${deleteButton}
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        // Render Skills tab list
+        // Render Skills table list
         function renderSkills() {
             const tbody = document.getElementById('skills-table-body');
             tbody.innerHTML = '';
             if (state.skills.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No learning metrics logged.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No learning metrics logged.</td></tr>';
                 return;
             }
             state.skills.forEach(s => {
+                const userObj = activeUsers.find(u => u.username === s.intern_name);
+                const displayName = userObj ? userObj.full_name : s.intern_name;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
+                    <td style="font-weight: 600;">${escapeHTML(displayName)}</td>
                     <td>
                         <strong>${escapeHTML(s.skill_tool)}</strong>
                         ${s.certificate === 'Yes' ? `<span class="badge badge-success" style="padding: 2px 6px; font-size:10px; margin-left:8px;"><i class="fa-solid fa-medal"></i> Cert</span>` : ''}
@@ -1532,19 +1867,26 @@
             });
         }
 
-        // Render Feedback tab list
+        // Render Feedback table list
         function renderFeedback() {
             const tbody = document.getElementById('feedback-table-body');
             tbody.innerHTML = '';
             if (state.feedback.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No feedback records registered.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No feedback records registered.</td></tr>';
                 return;
             }
             state.feedback.forEach(f => {
+                const targetObj = activeUsers.find(u => u.username === f.intern_name);
+                const targetName = targetObj ? targetObj.full_name : f.intern_name;
+
+                const reviewerObj = activeUsers.find(u => u.username === f.feedback_from);
+                const reviewerName = reviewerObj ? reviewerObj.full_name : f.feedback_from;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
+                    <td style="font-weight:600;">${escapeHTML(targetName)}</td>
                     <td>${f.date_logged}</td>
-                    <td style="font-weight:600;">${escapeHTML(f.feedback_from)}</td>
+                    <td style="font-weight:600;">${escapeHTML(reviewerName)}</td>
                     <td><span class="badge badge-primary">${escapeHTML(f.type)}</span></td>
                     <td>
                         <strong>${escapeHTML(f.feedback_summary)}</strong>
@@ -1562,17 +1904,16 @@
         // Action Helpers: Update task status
         async function updateTaskStatus(taskId, status) {
             try {
-                const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+                const res = await apiFetch(`/tasks/${taskId}`, {
                     method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
+                    body: {
                         status: status,
                         percent_done: status === 'Completed' ? 100 : undefined
-                    })
+                    }
                 });
                 if (res.ok) {
                     showToast("Task status updated successfully!");
-                    fetchData(); // Reload stats and items
+                    fetchData();
                 }
             } catch (err) {
                 showToast("Failed to update status on server", "error");
@@ -1582,13 +1923,12 @@
         // Action Helpers: Update task completion percentage
         async function updateTaskPercent(taskId, percent) {
             try {
-                const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+                const res = await apiFetch(`/tasks/${taskId}`, {
                     method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
+                    body: {
                         percent_done: parseInt(percent),
                         status: parseInt(percent) === 100 ? 'Completed' : undefined
-                    })
+                    }
                 });
                 if (res.ok) {
                     showToast("Task progress saved!");
@@ -1603,7 +1943,7 @@
         async function deleteTask(taskId) {
             if (!confirm("Are you sure you want to delete this task?")) return;
             try {
-                const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+                const res = await apiFetch(`/tasks/${taskId}`, {
                     method: 'DELETE'
                 });
                 if (res.ok) {
@@ -1615,34 +1955,133 @@
             }
         }
 
-        // Action Helpers: Delete daily log
-        async function deleteLog(logId) {
-            if (!confirm("Are you sure you want to delete this daily log?")) return;
+        // Logout Session Handler
+        async function handleLogout() {
             try {
-                const res = await fetch(`${API_URL}/logs/${logId}`, {
-                    method: 'DELETE'
-                });
+                const res = await apiFetch('/logout', { method: 'POST' });
                 if (res.ok) {
-                    showToast("Daily log removed successfully.");
-                    fetchData();
-                } else {
-                    showToast("Failed to delete daily log", "error");
+                    currentUser = null;
+                    showToast("Session closed successfully!");
+                    showAuthOverlay();
                 }
             } catch (err) {
-                showToast("Connection to backend lost", "error");
+                showAuthOverlay();
             }
         }
 
-        // Form Submit Handler: Save Daily Log
+        // Automatically calculate hours from check-in/out
+        function autoCalculateHours() {
+            const checkinVal = document.getElementById('log_checkin').value;
+            const checkoutVal = document.getElementById('log_checkout').value;
+            if (!checkinVal || !checkoutVal) return;
+
+            const [inH, inM] = checkinVal.split(':').map(Number);
+            const [outH, outM] = checkoutVal.split(':').map(Number);
+
+            let diffMin = (outH * 60 + outM) - (inH * 60 + inM);
+            if (diffMin < 0) {
+                diffMin += 24 * 60; // Handle overnight shifts
+            }
+
+            const diffHours = diffMin / 60;
+            const roundedHours = Math.min(Math.max(Math.round(diffHours), 1), 10);
+            
+            document.getElementById('log_hours').value = roundedHours.toString();
+        }
+
+        document.getElementById('log_checkin').addEventListener('change', autoCalculateHours);
+        document.getElementById('log_checkout').addEventListener('change', autoCalculateHours);
+        autoCalculateHours(); // Run once initially
+
+        // Make clicking anywhere inside the time input box trigger the browser timepicker popup
+        document.getElementById('log_checkin').addEventListener('click', function() {
+            try { this.showPicker(); } catch(e) {}
+        });
+        document.getElementById('log_checkout').addEventListener('click', function() {
+            try { this.showPicker(); } catch(e) {}
+        });
+
+        // ----------------- SUBMIT SUBMISSIONS -----------------
+
+        // Auth Form: Sign In
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = this.querySelector('.btn-submit');
+            submitBtn.disabled = true;
+            
+            const payload = {
+                username: document.getElementById('login_username').value,
+                password: document.getElementById('login_password').value
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload),
+                    credentials: 'include'
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    currentUser = data.user;
+                    showToast("Access approved!", "success");
+                    setupPortalForRole();
+                    fetchData();
+                    this.reset();
+                } else {
+                    showToast(data.error || "Authentication failed", "error");
+                }
+            } catch (err) {
+                showToast("Failed to reach auth gateway", "error");
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Auth Form: Sign Up
+        document.getElementById('signupForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = this.querySelector('.btn-submit');
+            submitBtn.disabled = true;
+
+            const payload = {
+                full_name: document.getElementById('signup_fullname').value,
+                username: document.getElementById('signup_username').value,
+                password: document.getElementById('signup_password').value,
+                role: document.getElementById('signup_role').value
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/signup`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    showToast("Registration successful! Please login.", "success");
+                    toggleAuthView('login');
+                    this.reset();
+                } else {
+                    showToast(data.error || "Signup failed", "error");
+                }
+            } catch (err) {
+                showToast("Failed to reach auth gateway", "error");
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Form Submit: Save Daily Log
         document.getElementById('logForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            autoCalculateHours(); // Ensure hours are calculated and select value is updated right before reading
             const submitBtn = this.querySelector('.btn-submit');
             submitBtn.disabled = true;
 
             const selectedMood = document.querySelector('#log_mood_group .rating-btn.active').dataset.value;
             const payload = {
-                intern_name: document.getElementById('current_intern').value,
                 date_logged: document.getElementById('log_date').value,
                 hours_worked: parseFloat(document.getElementById('log_hours').value),
                 check_in: document.getElementById('log_checkin').value,
@@ -1657,74 +2096,66 @@
             };
 
             try {
-                const res = await fetch(`${API_URL}/submit`, {
+                const res = await apiFetch('/submit', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+                    body: payload
                 });
                 if (res.ok) {
-                    showToast("Daily log logged successfully!", "success");
+                    showToast("Daily log saved!", "success");
                     this.reset();
                     document.getElementById('log_date').value = todayStr;
-                    autoCalculateHours(); // Recalculate hours after reset so it doesn't stay at default 1 hour
                     fetchData();
-                } else {
-                    const err = await res.json();
-                    showToast(err.error || "Submission failed", "error");
                 }
-            } catch (e) {
-                showToast("Connection to backend lost", "error");
+            } catch (err) {
+                // Handled by apiFetch redirection
             } finally {
                 submitBtn.disabled = false;
             }
         });
 
-        // Form Submit Handler: Create Project Task
+        // Form Submit: Create Project Task
         document.getElementById('taskForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const submitBtn = this.querySelector('.btn-submit');
             submitBtn.disabled = true;
 
             const payload = {
-                intern_name: document.getElementById('current_intern').value,
+                intern_name: document.getElementById('task_intern_name').value,
                 task_name: document.getElementById('task_name').value,
                 category: document.getElementById('task_category').value,
                 assigned_date: new Date().toISOString().split('T')[0],
                 due_date: document.getElementById('task_due').value,
                 priority: document.getElementById('task_priority').value,
-                assigned_by: document.getElementById('task_assigned_by').value || 'Mentor Naveen',
                 status: 'Not Started',
                 percent_done: 0,
                 notes: document.getElementById('task_notes').value || ''
             };
 
             try {
-                const res = await fetch(`${API_URL}/tasks`, {
+                const res = await apiFetch('/tasks', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+                    body: payload
                 });
                 if (res.ok) {
-                    showToast("Task assigned to backlog!");
+                    showToast("Task assigned successfully!");
                     this.reset();
                     document.getElementById('task_due').value = todayStr;
                     fetchData();
                 }
             } catch (err) {
-                showToast("Failed to assign task", "error");
+                // Handled
             } finally {
                 submitBtn.disabled = false;
             }
         });
 
-        // Form Submit Handler: Log Skill Entry
+        // Form Submit: Log Skill
         document.getElementById('skillForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const submitBtn = this.querySelector('.btn-submit');
             submitBtn.disabled = true;
 
             const payload = {
-                intern_name: document.getElementById('current_intern').value,
                 date_logged: new Date().toISOString().split('T')[0],
                 skill_tool: document.getElementById('skill_tool').value,
                 category: document.getElementById('skill_category').value,
@@ -1737,33 +2168,31 @@
             };
 
             try {
-                const res = await fetch(`${API_URL}/skills`, {
+                const res = await apiFetch('/skills', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+                    body: payload
                 });
                 if (res.ok) {
-                    showToast("Skill logged in profile inventory!");
+                    showToast("Skill added to profile!");
                     this.reset();
                     fetchData();
                 }
             } catch (err) {
-                showToast("Failed to log learning entry", "error");
+                // Handled
             } finally {
                 submitBtn.disabled = false;
             }
         });
 
-        // Form Submit Handler: Save Mentor Feedback
+        // Form Submit: Save Mentor Feedback
         document.getElementById('feedbackForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const submitBtn = this.querySelector('.btn-submit');
             submitBtn.disabled = true;
 
             const payload = {
-                intern_name: document.getElementById('current_intern').value,
+                intern_name: document.getElementById('fb_intern_name').value,
                 date_logged: document.getElementById('fb_date').value,
-                feedback_from: document.getElementById('fb_from').value,
                 type: document.getElementById('fb_type').value,
                 feedback_summary: document.getElementById('fb_summary').value,
                 strength_noted: document.getElementById('fb_strengths').value || '',
@@ -1774,25 +2203,24 @@
             };
 
             try {
-                const res = await fetch(`${API_URL}/feedback`, {
+                const res = await apiFetch('/feedback', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+                    body: payload
                 });
                 if (res.ok) {
-                    showToast("Supervisor review saved to feedback log!");
+                    showToast("Feedback review logged!");
                     this.reset();
                     document.getElementById('fb_date').value = todayStr;
                     fetchData();
                 }
             } catch (err) {
-                showToast("Failed to save feedback entry", "error");
+                // Handled
             } finally {
                 submitBtn.disabled = false;
             }
         });
 
-        // Escape string HTML to prevent XSS
+        // Helper: Escape HTML string to prevent XSS
         function escapeHTML(str) {
             if (!str) return '';
             return str.replace(/[&<>'"]/g, 
@@ -1806,8 +2234,8 @@
             );
         }
 
-        // Run initial loading
-        fetchData();
+        // Run initial authentication check on load
+        checkAuth();
     </script>
 </body>
 </html>
