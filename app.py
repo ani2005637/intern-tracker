@@ -232,10 +232,16 @@ def get_users():
     # Fetch users
     users = list(db.users.find(query).sort("full_name", 1))
     
-    # Check session presence status
+    # Check session presence status based on the latest login log
     for u in users:
-        active_session = db.session_logs.find_one({"username": u['username'], "logout_time": None})
-        u['status'] = "Available" if active_session else "Logged Out"
+        latest_session = db.session_logs.find_one(
+            {"username": u['username']},
+            sort=[("login_time", pymongo.DESCENDING)]
+        )
+        if latest_session and latest_session.get("logout_time") is None:
+            u['status'] = "Available"
+        else:
+            u['status'] = "Logged Out"
 
     return jsonify(serialize(users))
 
