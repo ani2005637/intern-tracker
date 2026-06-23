@@ -1061,23 +1061,25 @@
                     </div>
                 </div>
 
-                <!-- Mood trend -->
-                <div class="panel" style="margin-bottom: 30px;">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-face-smile"></i>
-                        <span>Mood Trend — Last 10 Logs</span>
+                <!-- Team Summary / Mood Trend Panel -->
+                <div class="panel" id="dash-summary-panel" style="margin-bottom: 30px;">
+                    <div class="panel-title" id="dash-summary-title">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Team Work Hours & Tasks Summary</span>
                     </div>
                     <div class="table-responsive">
                         <table>
-                            <thead>
+                            <thead id="dash-summary-thead">
                                 <tr>
-                                    <th>Intern Username</th>
-                                    <th>Date</th>
-                                    <th>Mood Score</th>
-                                    <th>Visual Rating</th>
+                                    <th>User</th>
+                                    <th>Role</th>
+                                    <th>Total Hours</th>
+                                    <th>Days Logged</th>
+                                    <th>Tasks Completed</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="dash-mood-table">
+                            <tbody id="dash-summary-table">
                                 <!-- Populated dynamically -->
                             </tbody>
                         </table>
@@ -2184,39 +2186,127 @@
                 weeklyTableBody.appendChild(tr);
             }
 
-            // 4. Mood Trend Table (Last 10 Logs)
-            const moodTableBody = document.getElementById('dash-mood-table');
-            moodTableBody.innerHTML = '';
-            const last10Logs = [...filteredLogs]
-                .sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged))
-                .slice(0, 10);
-            
-            if (last10Logs.length === 0) {
-                moodTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No logs logged yet.</td></tr>';
-            } else {
-                last10Logs.forEach(log => {
-                    const moodVal = log.mood || 5;
-                    const percent = moodVal * 20;
-                    let fillCol = 'var(--danger)';
-                    if (moodVal >= 4) fillCol = 'var(--success)';
-                    else if (moodVal >= 3) fillCol = 'var(--warning)';
+            // 4. Team Work Hours & Tasks Summary (for Admin/Manager) or Mood Trend (for Intern/Employee)
+            const summaryTitle = document.getElementById('dash-summary-title');
+            const summaryThead = document.getElementById('dash-summary-thead');
+            const summaryTbody = document.getElementById('dash-summary-table');
 
-                    // Find full name from username mapping
-                    const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
-                    const displayName = userObj ? userObj.full_name : log.intern_name;
-
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td style="font-weight:600;">${escapeHTML(displayName)}</td>
-                        <td>${log.date_logged}</td>
-                        <td style="font-weight:700;">${moodVal} / 5</td>
-                        <td>
-                            <div class="mood-bar"><div class="mood-fill" style="width: ${percent}%; background-color: ${fillCol};"></div></div>
-                            <span style="font-size:12px; color:var(--text-muted);">${moodVal === 5 ? 'Excellent' : moodVal === 4 ? 'Good' : moodVal === 3 ? 'Neutral' : moodVal === 2 ? 'Low' : 'Struggling'}</span>
-                        </td>
+            if (summaryTitle && summaryThead && summaryTbody) {
+                if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
+                    summaryTitle.innerHTML = `<i class="fa-solid fa-users"></i> <span>Team Work Hours & Tasks Summary</span>`;
+                    summaryThead.innerHTML = `
+                        <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Total Hours</th>
+                            <th>Days Logged</th>
+                            <th>Tasks Progress</th>
+                            <th>Status</th>
+                        </tr>
                     `;
-                    moodTableBody.appendChild(tr);
-                });
+                    summaryTbody.innerHTML = '';
+
+                    // Filter users according to role permissions:
+                    // Admin sees Manager, Employee, Intern
+                    // Manager sees Employee, Intern
+                    const subordinateUsers = activeUsers.filter(u => {
+                        if (currentUser.role === 'Admin') {
+                            return u.role === 'Manager' || u.role === 'Employee' || u.role === 'Intern';
+                        } else if (currentUser.role === 'Manager') {
+                            return u.role === 'Employee' || u.role === 'Intern';
+                        }
+                        return false;
+                    });
+
+                    const userVal = document.getElementById('dash-user-filter').value;
+                    let displayUsers = [...subordinateUsers];
+                    if (userVal !== 'ALL') {
+                        displayUsers = displayUsers.filter(u => u.username.toLowerCase().trim() === userVal.toLowerCase().trim());
+                    }
+
+                    if (displayUsers.length === 0) {
+                        summaryTbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No team members found.</td></tr>';
+                    } else {
+                        displayUsers.forEach(u => {
+                            // Calculate total hours logged by this user
+                            const userLogs = state.logs.filter(l => l.intern_name && l.intern_name.toLowerCase().trim() === u.username.toLowerCase().trim());
+                            const userHours = userLogs.reduce((sum, item) => sum + parseFloat(item.hours_worked || 0), 0);
+                            const userDays = new Set(userLogs.map(item => item.date_logged)).size;
+
+                            // Calculate tasks progress
+                            const userTasks = state.tasks.filter(t => t.intern_name && t.intern_name.toLowerCase().trim() === u.username.toLowerCase().trim());
+                            const compTasks = userTasks.filter(t => t.status === 'Completed').length;
+                            const totTasks = userTasks.length;
+
+                            const isOnline = u.status === 'Available';
+                            const statusBadge = `<span class="badge ${isOnline ? 'badge-success' : 'badge-primary'}" style="${isOnline ? '' : 'opacity: 0.6;'}">
+                                <i class="fa-solid ${isOnline ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${u.status || 'Logged Out'}
+                            </span>`;
+
+                            let roleBadgeClass = 'badge-primary';
+                            if (u.role === 'Manager') roleBadgeClass = 'badge-warning';
+                            else if (u.role === 'Employee') roleBadgeClass = 'badge-primary';
+                            else if (u.role === 'Intern') roleBadgeClass = 'badge-success';
+
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="font-weight:600;">${escapeHTML(u.full_name)}</td>
+                                <td><span class="badge ${roleBadgeClass}">${u.role}</span></td>
+                                <td style="font-weight:600; color: var(--primary);">${userHours.toFixed(1)} hrs</td>
+                                <td>${userDays} days</td>
+                                <td>
+                                    <strong>${compTasks}</strong> / ${totTasks}
+                                    <span style="font-size: 11px; color: var(--text-muted); margin-left: 4px;">(${totTasks > 0 ? Math.round((compTasks/totTasks)*100) : 0}%)</span>
+                                </td>
+                                <td>${statusBadge}</td>
+                            `;
+                            summaryTbody.appendChild(tr);
+                        });
+                    }
+                } else {
+                    // Intern/Employee: Mood Trend - Last 10 Logs
+                    summaryTitle.innerHTML = `<i class="fa-solid fa-face-smile"></i> <span>Mood Trend — Last 10 Logs</span>`;
+                    summaryThead.innerHTML = `
+                        <tr>
+                            <th>Intern Username</th>
+                            <th>Date</th>
+                            <th>Mood Score</th>
+                            <th>Visual Rating</th>
+                        </tr>
+                    `;
+                    summaryTbody.innerHTML = '';
+                    
+                    const last10Logs = [...filteredLogs]
+                        .sort((a, b) => new Date(b.date_logged) - new Date(a.date_logged))
+                        .slice(0, 10);
+
+                    if (last10Logs.length === 0) {
+                        summaryTbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No logs logged yet.</td></tr>';
+                    } else {
+                        last10Logs.forEach(log => {
+                            const moodVal = log.mood || 5;
+                            const percent = moodVal * 20;
+                            let fillCol = 'var(--danger)';
+                            if (moodVal >= 4) fillCol = 'var(--success)';
+                            else if (moodVal >= 3) fillCol = 'var(--warning)';
+
+                            const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
+                            const displayName = userObj ? userObj.full_name : log.intern_name;
+
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="font-weight:600;">${escapeHTML(displayName)}</td>
+                                <td>${log.date_logged}</td>
+                                <td style="font-weight:700;">${moodVal} / 5</td>
+                                <td>
+                                    <div class="mood-bar"><div class="mood-fill" style="width: ${percent}%; background-color: ${fillCol};"></div></div>
+                                    <span style="font-size:12px; color:var(--text-muted);">${moodVal === 5 ? 'Excellent' : moodVal === 4 ? 'Good' : moodVal === 3 ? 'Neutral' : moodVal === 2 ? 'Low' : 'Struggling'}</span>
+                                </td>
+                            `;
+                            summaryTbody.appendChild(tr);
+                        });
+                    }
+                }
             }
         }
 
