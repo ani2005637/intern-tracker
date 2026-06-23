@@ -2142,8 +2142,31 @@
             });
 
             // 3. Weekly Hours Table
+            // Calculate weeks to display dynamically (at least 6, or up to the current calendar week or logged week)
+            const diffTimeToday = new Date() - START_DATE;
+            let currentWeekNum = 1;
+            if (diffTimeToday >= 0) {
+                const diffDaysToday = Math.floor(diffTimeToday / (1000 * 60 * 60 * 24));
+                currentWeekNum = Math.floor(diffDaysToday / 7) + 1;
+            }
+
+            let maxLogWeek = 1;
+            filteredLogs.forEach(log => {
+                const logDate = new Date(log.date_logged);
+                const diffTime = logDate - START_DATE;
+                if (diffTime >= 0) {
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    const weekNum = Math.floor(diffDays / 7) + 1;
+                    if (weekNum > maxLogWeek) {
+                        maxLogWeek = weekNum;
+                    }
+                }
+            });
+
+            const weeksToDisplay = Math.max(6, currentWeekNum, maxLogWeek);
+
             const weeklyData = {};
-            for (let w = 1; w <= 12; w++) {
+            for (let w = 1; w <= weeksToDisplay; w++) {
                 weeklyData[w] = { hours: 0, days: new Set(), deliverables: 0 };
             }
 
@@ -2165,7 +2188,7 @@
                     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                     // Week starts on Monday. Since START_DATE is Monday, week transitions every 7 days.
                     const weekNum = Math.floor(diffDays / 7) + 1;
-                    if (weekNum >= 1 && weekNum <= 12) {
+                    if (weekNum >= 1 && weekNum <= weeksToDisplay) {
                         weeklyData[weekNum].hours += parseFloat(log.hours_worked || 0);
                         weeklyData[weekNum].days.add(log.date_logged);
                         if (log.deliverable_completed === 'Yes') {
@@ -2177,7 +2200,7 @@
 
             const weeklyTableBody = document.getElementById('dash-weekly-table');
             weeklyTableBody.innerHTML = '';
-            for (let w = 1; w <= 6; w++) {
+            for (let w = 1; w <= weeksToDisplay; w++) {
                 const weekInfo = weeklyData[w];
                 const daysCount = weekInfo.days.size;
                 const hoursVal = weekInfo.hours;
