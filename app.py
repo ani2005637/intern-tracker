@@ -923,5 +923,33 @@ def update_user_role(user_id):
     return jsonify({"message": f"User {target_user['full_name']} role updated to {new_role}!"})
 
 
+# ----------------- SESSION LOGS API ENDPOINT (Admin & Manager Only) -----------------
+@app.route('/session_logs', methods=['GET'])
+def get_session_logs():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user['role'] not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden: Access restricted"}), 403
+
+    try:
+        # Enforce hierarchical access control:
+        # Admin can view all login/logout session logs
+        if user['role'] == 'Admin':
+            logs = list(db.session_logs.find({}).sort("login_time", -1))
+        # Manager can view Employee and Intern logs, plus their own
+        else:
+            sub_users = list(db.users.find({"role": {"$in": ["Employee", "Intern"]}}, {"username": 1}))
+            sub_usernames = [u['username'] for u in sub_users]
+            sub_usernames.append(user['username'])
+            
+            logs = list(db.session_logs.find({"username": {"$in": sub_usernames}}).sort("login_time", -1))
+            
+        return jsonify(serialize(logs))
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch session logs: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

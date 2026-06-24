@@ -1113,6 +1113,7 @@
                                 <!-- Populated dynamically -->
                             </tbody>
                         </table>
+                    </div>
                 </div>
 
             </section>
@@ -1257,13 +1258,21 @@
                             <i class="fa-solid fa-clock-rotate-left"></i>
                             <span>Activity Updates Logs</span>
                         </div>
-                        <div id="activity-view-toggle-container" style="display: flex; gap: 10px;">
-                            <button id="btn-view-employees" class="btn btn-primary btn-sm" onclick="setActivityView('employees')">Employees Activity Logs</button>
-                            <button id="btn-view-interns" class="btn btn-secondary btn-sm" onclick="setActivityView('interns')">Interns Activity Logs</button>
+                        <div id="activity-view-toggle-container" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <label for="activity-user-filter" style="font-size: 13px; font-weight: 500; color: var(--text-muted);">Filter User:</label>
+                                <select id="activity-user-filter" onchange="renderActivityLogs()" style="padding: 6px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); outline: none;">
+                                    <option value="ALL">All Team Members</option>
+                                </select>
+                            </div>
+                            <button id="btn-view-employees" class="btn btn-primary btn-sm" onclick="setActivityView('employees')">Employees Work Logs</button>
+                            <button id="btn-view-interns" class="btn btn-secondary btn-sm" onclick="setActivityView('interns')">Interns Work Logs</button>
+                            <button id="btn-view-sessions" class="btn btn-secondary btn-sm" onclick="setActivityView('sessions')">Session Attendance Logs</button>
                         </div>
                     </div>
                     
-                    <div class="table-responsive" style="margin-top: 15px;">
+                    <!-- Table 1: Work Logs -->
+                    <div class="table-responsive" id="activity-work-logs-container" style="margin-top: 15px;">
                         <table>
                             <thead>
                                 <tr>
@@ -1278,6 +1287,26 @@
                                 </tr>
                             </thead>
                             <tbody id="activity-logs-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Table 2: Session Logs (Check-In & Check-Out Times) -->
+                    <div class="table-responsive" id="activity-session-logs-container" style="margin-top: 15px; display: none;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Role</th>
+                                    <th>Login Date</th>
+                                    <th>Check-In Time</th>
+                                    <th>Check-Out Time</th>
+                                    <th>Active Duration</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-session-logs-table-body">
                                 <!-- Populated dynamically -->
                             </tbody>
                         </table>
@@ -1971,6 +2000,9 @@
                 const dashFilter = document.getElementById('dash-user-filter');
                 const previousDashVal = dashFilter ? dashFilter.value : 'ALL';
 
+                const activityFilter = document.getElementById('activity-user-filter');
+                const previousActivityVal = activityFilter ? activityFilter.value : 'ALL';
+
                 const taskSelect = document.getElementById('task_intern_name');
                 const previousTaskVal = taskSelect ? taskSelect.value : '';
 
@@ -1980,10 +2012,15 @@
                 // 1. Dashboard Filter options (Interns + Employees + Managers for Admin)
                 dashFilter.innerHTML = '<option value="ALL">All Active Users</option>';
                 
-                // 2. Task Assign To selector
+                // 2. Activity User Filter options
+                if (activityFilter) {
+                    activityFilter.innerHTML = '<option value="ALL">All Team Members</option>';
+                }
+
+                // 3. Task Assign To selector
                 taskSelect.innerHTML = '<option value="">Choose the person...</option>';
 
-                // 3. Feedback Target selector
+                // 4. Feedback Target selector
                 fbSelect.innerHTML = '<option value="">Choose target user...</option>';
 
                 activeUsers.forEach(u => {
@@ -1997,6 +2034,15 @@
                     } else if (currentUser.role === 'Manager') {
                         if (u.role === 'Employee' || u.role === 'Intern') {
                             dashFilter.innerHTML += optionHtml;
+                        }
+                    }
+
+                    // Activity filter population based on user role (Employee and Intern logs are visible to Admin/Manager)
+                    if (activityFilter) {
+                        if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
+                            if (u.role === 'Employee' || u.role === 'Intern') {
+                                activityFilter.innerHTML += optionHtml;
+                            }
                         }
                     }
 
@@ -2037,6 +2083,22 @@
                         }
                         if (!found) {
                             dashFilter.value = 'ALL';
+                        }
+                    }
+                }
+                if (activityFilter) {
+                    activityFilter.value = previousActivityVal;
+                    if (activityFilter.value !== previousActivityVal) {
+                        let found = false;
+                        for (let i = 0; i < activityFilter.options.length; i++) {
+                            if (activityFilter.options[i].value.toLowerCase().trim() === previousActivityVal.toLowerCase().trim()) {
+                                activityFilter.value = activityFilter.options[i].value;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            activityFilter.value = 'ALL';
                         }
                     }
                 }
@@ -2185,12 +2247,19 @@
         // Fetch logs, tasks, skills, feedback in parallel to optimize speed and resolve latency
         async function fetchData() {
             try {
+                // Only fetch session logs for Admin and Manager roles
+                let sessionLogsPromise = Promise.resolve([]);
+                if (currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Manager')) {
+                    sessionLogsPromise = apiFetch('/session_logs').then(r => r.json());
+                }
+
                 const promises = [
                     apiFetch('/logs').then(r => r.json()),
                     apiFetch('/tasks').then(r => r.json()),
                     apiFetch('/skills').then(r => r.json()),
                     apiFetch('/feedback').then(r => r.json()),
-                    apiFetch('/notifications').then(r => r.json())
+                    apiFetch('/notifications').then(r => r.json()),
+                    sessionLogsPromise
                 ];
 
                 const results = await Promise.all(promises);
@@ -2201,6 +2270,8 @@
                 state.feedback = results[3];
                 
                 const newNotifs = results[4];
+                state.sessionLogs = results[5];
+
                 // Show toasts for new notifications if not the initial load
                 if (state.notifications && state.notifications.length > 0) {
                     newNotifs.forEach(notif => {
@@ -2533,25 +2604,129 @@
             currentActivityView = view;
             const btnEmployees = document.getElementById('btn-view-employees');
             const btnInterns = document.getElementById('btn-view-interns');
+            const btnSessions = document.getElementById('btn-view-sessions');
             
-            if (view === 'employees') {
-                btnEmployees.className = 'btn btn-primary btn-sm';
-                btnInterns.className = 'btn btn-secondary btn-sm';
-            } else {
+            if (btnEmployees && btnInterns && btnSessions) {
                 btnEmployees.className = 'btn btn-secondary btn-sm';
-                btnInterns.className = 'btn btn-primary btn-sm';
+                btnInterns.className = 'btn btn-secondary btn-sm';
+                btnSessions.className = 'btn btn-secondary btn-sm';
+
+                if (view === 'employees') {
+                    btnEmployees.className = 'btn btn-primary btn-sm';
+                } else if (view === 'interns') {
+                    btnInterns.className = 'btn btn-primary btn-sm';
+                } else if (view === 'sessions') {
+                    btnSessions.className = 'btn btn-primary btn-sm';
+                }
             }
             renderActivityLogs();
         }
 
+        function formatSessionDuration(loginStr, logoutStr) {
+            if (!loginStr || !logoutStr) return '-';
+            const login = new Date(loginStr);
+            const logout = new Date(logoutStr);
+            const diffMs = logout - login;
+            if (diffMs < 0) return '-';
+            const diffMins = Math.round(diffMs / 1000 / 60);
+            const hours = Math.floor(diffMins / 60);
+            const mins = diffMins % 60;
+            
+            if (hours > 0) {
+                return `${hours}h ${mins}m`;
+            }
+            return `${mins}m`;
+        }
+
+        function renderSessionAttendanceLogs() {
+            const tbody = document.getElementById('activity-session-logs-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            // Filter by user selection if applicable
+            const activityFilter = document.getElementById('activity-user-filter');
+            const selectedUser = activityFilter ? activityFilter.value : 'ALL';
+            
+            // We only show session logs for Employee and Intern roles (hierarchical monitoring)
+            let logs = (state.sessionLogs || []).filter(log => log.role === 'Employee' || log.role === 'Intern');
+            
+            if (selectedUser !== 'ALL') {
+                logs = logs.filter(log => (log.username || '').toLowerCase().trim() === selectedUser.toLowerCase().trim());
+            }
+            
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding: 20px;">No session attendance logs found.</td></tr>';
+                return;
+            }
+
+            logs.forEach(log => {
+                const dateObj = new Date(log.login_time);
+                const localDateStr = dateObj.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+                const loginTimeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                let logoutTimeStr = '-';
+                let durationStr = '-';
+                let statusBadge = '<span class="badge badge-success">Active</span>';
+                
+                if (log.logout_time) {
+                    const logoutObj = new Date(log.logout_time);
+                    logoutTimeStr = logoutObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    durationStr = formatSessionDuration(log.login_time, log.logout_time);
+                    statusBadge = '<span class="badge badge-primary">Completed</span>';
+                } else {
+                    // Calculate duration up to "now" dynamically for active sessions
+                    const durationVal = formatSessionDuration(log.login_time, new Date().toISOString());
+                    durationStr = `<span style="color: var(--success); font-style: italic; font-weight: 600;">Active: ${durationVal}</span>`;
+                }
+
+                let roleBadgeClass = 'badge-success'; // Intern
+                if (log.role === 'Admin') roleBadgeClass = 'badge-danger';
+                else if (log.role === 'Manager') roleBadgeClass = 'badge-warning';
+                else if (log.role === 'Employee') roleBadgeClass = 'badge-primary';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${escapeHTML(log.full_name || log.username)}</td>
+                    <td><span class="badge ${roleBadgeClass}">${log.role}</span></td>
+                    <td>${localDateStr}</td>
+                    <td style="font-weight: 500; color: var(--primary);">${loginTimeStr}</td>
+                    <td style="font-weight: 500; color: var(--text-muted);">${logoutTimeStr}</td>
+                    <td style="font-weight: 700;">${durationStr}</td>
+                    <td>${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
         function renderActivityLogs() {
+            const workLogsContainer = document.getElementById('activity-work-logs-container');
+            const sessionLogsContainer = document.getElementById('activity-session-logs-container');
+            
+            if (currentActivityView === 'sessions') {
+                if (workLogsContainer) workLogsContainer.style.display = 'none';
+                if (sessionLogsContainer) sessionLogsContainer.style.display = 'block';
+                renderSessionAttendanceLogs();
+                return;
+            }
+
+            if (workLogsContainer) workLogsContainer.style.display = 'block';
+            if (sessionLogsContainer) sessionLogsContainer.style.display = 'none';
+
             const tbody = document.getElementById('activity-logs-table-body');
             if (!tbody) return;
             tbody.innerHTML = '';
             
+            // Filter by user selection if applicable
+            const activityFilter = document.getElementById('activity-user-filter');
+            const selectedUser = activityFilter ? activityFilter.value : 'ALL';
+            
             let logsToRender = state.logs.filter(log => {
                 const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
                 const userRole = userObj ? userObj.role : 'Intern';
+                
+                if (selectedUser !== 'ALL' && (log.intern_name || '').toLowerCase().trim() !== selectedUser.toLowerCase().trim()) {
+                    return false;
+                }
                 
                 if (currentActivityView === 'employees') {
                     return userRole === 'Employee';
