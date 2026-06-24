@@ -903,7 +903,11 @@
                 <li class="nav-item" data-tab="daily-logs" id="nav-logs">
                     <button><i class="fa-solid fa-calendar-day"></i> Daily Tracker</button>
                 </li>
-                <li class="nav-item" data-tab="tasks">
+                <!-- Admin / Manager only options -->
+                <li class="nav-item" data-tab="activity-logs" id="nav-activity-logs" style="display: none;">
+                    <button><i class="fa-solid fa-clock-rotate-left"></i> Activity Logs</button>
+                </li>
+                <li class="nav-item" data-tab="tasks" id="nav-tasks">
                     <button><i class="fa-solid fa-list-check"></i> Task Board</button>
                 </li>
                 <!-- Intern / Employee only options -->
@@ -1245,68 +1249,104 @@
                 </div>
             </section>
 
+            <!-- TAB: ACTIVITY LOGS (ADMIN & MANAGER) -->
+            <section id="activity-logs" class="tab-content">
+                <div class="panel">
+                    <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <span>Activity Updates Logs</span>
+                        </div>
+                        <div id="activity-view-toggle-container" style="display: flex; gap: 10px;">
+                            <button id="btn-view-employees" class="btn btn-primary btn-sm" onclick="setActivityView('employees')">Employees Activity Logs</button>
+                            <button id="btn-view-interns" class="btn btn-secondary btn-sm" onclick="setActivityView('interns')">Interns Activity Logs</button>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive" style="margin-top: 15px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Date</th>
+                                    <th>In</th>
+                                    <th>Out</th>
+                                    <th>Hours</th>
+                                    <th>Tasks Completed</th>
+                                    <th>Deliv?</th>
+                                    <th style="width: 100px; text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-logs-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Add Task Panel (Moved here) -->
+                <div class="panel" id="task-assign-panel" style="margin-top: 20px;">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-circle-plus"></i>
+                        <span>Create Project Task</span>
+                    </div>
+                    <form id="taskForm">
+                        <div class="form-group">
+                            <label for="task_intern_name">Assign To User</label>
+                            <select id="task_intern_name" required>
+                                <!-- Populated dynamically based on role -->
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="task_name">Task Title</label>
+                            <input type="text" id="task_name" placeholder="e.g. Design user profiles screen" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="task_category">Category</label>
+                                <select id="task_category">
+                                    <option value="Frontend">Frontend Dev</option>
+                                    <option value="Backend">Backend API</option>
+                                    <option value="Database">Database Schema</option>
+                                    <option value="DevOps">Deployment / DevOps</option>
+                                    <option value="Documentation">Documentation</option>
+                                    <option value="Design">UI/UX Design</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="task_priority">Priority</label>
+                                <select id="task_priority">
+                                    <option value="High">High</option>
+                                    <option value="Medium" selected>Medium</option>
+                                    <option value="Low">Low</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="task_due">Due Date</label>
+                                <input type="date" id="task_due">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="task_notes">Task Description</label>
+                            <textarea id="task_notes" rows="3" placeholder="Provide extra details for this task objective..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-submit">
+                            <i class="fa-solid fa-list-check"></i> Assign Task
+                        </button>
+                    </form>
+                </div>
+            </section>
 
             <!-- TAB: TASK TRACKER -->
             <section id="tasks" class="tab-content">
-                <div class="grid-2">
-                    <!-- Add Task Panel (Hidden for Interns) -->
-                    <div class="panel" id="task-assign-panel">
-                        <div class="panel-title">
-                            <i class="fa-solid fa-circle-plus"></i>
-                            <span>Create Project Task</span>
-                        </div>
-                        <form id="taskForm">
-                            <div class="form-group">
-                                <label for="task_intern_name">Assign To User</label>
-                                <select id="task_intern_name" required>
-                                    <!-- Populated dynamically based on role -->
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="task_name">Task Title</label>
-                                <input type="text" id="task_name" placeholder="e.g. Design user profiles screen" required>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="task_category">Category</label>
-                                    <select id="task_category">
-                                        <option value="Frontend">Frontend Dev</option>
-                                        <option value="Backend">Backend API</option>
-                                        <option value="Database">Database Schema</option>
-                                        <option value="DevOps">Deployment / DevOps</option>
-                                        <option value="Documentation">Documentation</option>
-                                        <option value="Design">UI/UX Design</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="task_priority">Priority</label>
-                                    <select id="task_priority">
-                                        <option value="High">High</option>
-                                        <option value="Medium" selected>Medium</option>
-                                        <option value="Low">Low</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="task_due">Due Date</label>
-                                    <input type="date" id="task_due">
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="task_notes">Task Description</label>
-                                <textarea id="task_notes" rows="3" placeholder="Provide extra details for this task objective..."></textarea>
-                            </div>
-
-                            <button type="submit" class="btn-submit">
-                                <i class="fa-solid fa-list-check"></i> Assign Task
-                            </button>
-                        </form>
-                    </div>
+                <div class="grid-2">          
 
                     <!-- Active Tasks Log -->
                     <div class="panel" id="tasks-list-panel">
@@ -1565,6 +1605,92 @@
     <!-- Toast Notifications Container -->
     <div id="toastContainer" class="toast-container"></div>
 
+    <!-- Edit Log Modal -->
+    <div id="edit-log-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);">
+        <div class="panel" style="width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; margin: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+            <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span>Edit Daily Log Entry</span>
+                </div>
+                <button onclick="closeEditLogModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="editLogFormModal" style="margin-top: 15px;">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="edit_log_intern_name">User</label>
+                    <input type="text" id="edit_log_intern_name" readonly style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border-color); cursor: not-allowed;">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_log_date">Date</label>
+                        <input type="date" id="edit_log_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_log_hours">Hours Worked</label>
+                        <input type="number" id="edit_log_hours" step="0.5" min="0.5" max="24" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit_log_checkin">Check-In</label>
+                        <input type="time" id="edit_log_checkin" value="09:00">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_log_checkout">Check-Out</label>
+                        <input type="time" id="edit_log_checkout" value="18:00">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="edit_log_category">Task Category</label>
+                    <select id="edit_log_category" required>
+                        <option value="Frontend Development">Frontend Development</option>
+                        <option value="Backend Development">Backend Development</option>
+                        <option value="Database Setup">Database Setup</option>
+                        <option value="Documentation">Documentation</option>
+                        <option value="Bug Fixing & QA">Bug Fixing & QA</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_log_tasks">Tasks Completed Today</label>
+                    <textarea id="edit_log_tasks" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Deliverable Completed?</label>
+                    <select id="edit_log_deliverable">
+                        <option value="Yes">Yes, complete</option>
+                        <option value="No">No, in progress</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_log_blockers">Blockers / Challenges (Optional)</label>
+                    <input type="text" id="edit_log_blockers">
+                </div>
+                <div class="form-group">
+                    <label for="edit_log_skills">Skills Used (Optional)</label>
+                    <input type="text" id="edit_log_skills">
+                </div>
+                <div class="form-group">
+                    <label>Daily Mood (1-5)</label>
+                    <div class="rating-group" id="edit_log_mood_group">
+                        <button type="button" class="rating-btn" data-value="1">1</button>
+                        <button type="button" class="rating-btn" data-value="2">2</button>
+                        <button type="button" class="rating-btn" data-value="3">3</button>
+                        <button type="button" class="rating-btn" data-value="4">4</button>
+                        <button type="button" class="rating-btn" data-value="5">5</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="edit_log_notes">Additional Notes</label>
+                    <textarea id="edit_log_notes" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top: 15px; width: 100%;">
+                    <i class="fa-solid fa-floppy-disk"></i> Update Log Entry
+                </button>
+            </form>
+        </div>
+    </div>
+
     <script>
         // API connection config
         const API_URL = window.location.protocol === 'file:' ? 'http://127.0.0.1:5000' : '';
@@ -1638,6 +1764,7 @@
                 const titles = {
                     'dashboard': currentUser.role === 'Admin' ? 'Admin Control Panel' : (currentUser.role === 'Manager' ? 'Manager Overview' : (currentUser.role === 'Employee' ? 'Employee Workspace' : 'Internship Dashboard')),
                     'daily-logs': 'Daily Logs Tracker',
+                    'activity-logs': 'Activity Updates Logs',
                     'tasks': 'Task & Project Tracker',
                     'skills': 'Skills & Learnings Log',
                     'feedback': 'Mentor & Supervisor Feedback'
@@ -1645,6 +1772,7 @@
                 const subtitles = {
                     'dashboard': currentUser.role === 'Admin' ? 'Complete system overview and login tracking' : (currentUser.role === 'Manager' ? 'Subordinate tracking & operations statistics' : (currentUser.role === 'Employee' ? 'Personal progress & tasks tracking' : 'Dynamic Summary Analytics')),
                     'daily-logs': 'Daily check-in, deliverables, and progress logs',
+                    'activity-logs': 'Review daily check-in, deliverables, and progress logs of Employees and Interns',
                     'tasks': 'Manage and update project deliverables',
                     'skills': 'Track online courses and proficiency changes',
                     'feedback': 'Chronological record of supervisor feedback and action items'
@@ -1684,6 +1812,13 @@
         document.querySelectorAll('#log_mood_group .rating-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('#log_mood_group .rating-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        document.querySelectorAll('#edit_log_mood_group .rating-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#edit_log_mood_group .rating-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
             });
         });
@@ -1758,6 +1893,8 @@
             if (currentUser.role === 'Intern' || currentUser.role === 'Employee') {
                 document.getElementById('nav-logs').style.display = 'block';
                 document.getElementById('nav-skills').style.display = 'block';
+                document.getElementById('nav-tasks').style.display = 'block';
+                document.getElementById('nav-activity-logs').style.display = 'none';
                 
                 // Hide assignment forms and expand backlogs/lists full-width
                 document.getElementById('task-assign-panel').style.display = 'none';
@@ -1774,6 +1911,8 @@
                 // They don't log personal hours, so hide Daily Tracker and Skills Log navigation tabs
                 document.getElementById('nav-logs').style.display = 'none';
                 document.getElementById('nav-skills').style.display = 'none';
+                document.getElementById('nav-tasks').style.display = 'none';
+                document.getElementById('nav-activity-logs').style.display = 'block';
 
                 // Show assignment panels
                 document.getElementById('task-assign-panel').style.display = 'block';
@@ -1802,6 +1941,7 @@
             const titles = {
                 'dashboard': currentUser.role === 'Admin' ? 'Admin Control Panel' : (currentUser.role === 'Manager' ? 'Manager Overview' : (currentUser.role === 'Employee' ? 'Employee Workspace' : 'Internship Dashboard')),
                 'daily-logs': 'Daily Logs Tracker',
+                'activity-logs': 'Activity Updates Logs',
                 'tasks': 'Task & Project Tracker',
                 'skills': 'Skills & Learnings Log',
                 'feedback': 'Mentor & Supervisor Feedback'
@@ -1809,6 +1949,7 @@
             const subtitles = {
                 'dashboard': currentUser.role === 'Admin' ? 'Complete system overview and login tracking' : (currentUser.role === 'Manager' ? 'Subordinate tracking & operations statistics' : (currentUser.role === 'Employee' ? 'Personal progress & tasks tracking' : 'Dynamic Summary Analytics')),
                 'daily-logs': 'Daily check-in, deliverables, and progress logs',
+                'activity-logs': 'Review daily check-in, deliverables, and progress logs of Employees and Interns',
                 'tasks': 'Manage and update project deliverables',
                 'skills': 'Track online courses and proficiency changes',
                 'feedback': 'Chronological record of supervisor feedback and action items'
@@ -2077,6 +2218,7 @@
                 renderDashboard();
                 renderLogs();
                 renderTasks();
+                renderActivityLogs();
                 renderSkills();
                 renderFeedback();
                 renderNotifications();
@@ -2381,6 +2523,181 @@
                     <td style="text-align: center; white-space: nowrap;">${actionButtons}</td>
                 `;
                 tbody.appendChild(tr);
+            });
+        }
+
+        // --- Activity Updates Logs (Admin & Manager) functions ---
+        let currentActivityView = 'employees';
+
+        function setActivityView(view) {
+            currentActivityView = view;
+            const btnEmployees = document.getElementById('btn-view-employees');
+            const btnInterns = document.getElementById('btn-view-interns');
+            
+            if (view === 'employees') {
+                btnEmployees.className = 'btn btn-primary btn-sm';
+                btnInterns.className = 'btn btn-secondary btn-sm';
+            } else {
+                btnEmployees.className = 'btn btn-secondary btn-sm';
+                btnInterns.className = 'btn btn-primary btn-sm';
+            }
+            renderActivityLogs();
+        }
+
+        function renderActivityLogs() {
+            const tbody = document.getElementById('activity-logs-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            let logsToRender = state.logs.filter(log => {
+                const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
+                const userRole = userObj ? userObj.role : 'Intern';
+                
+                if (currentActivityView === 'employees') {
+                    return userRole === 'Employee';
+                } else {
+                    return userRole === 'Intern';
+                }
+            });
+
+            if (logsToRender.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding: 20px;">No activity logs found for ${currentActivityView}.</td></tr>`;
+                return;
+            }
+
+            logsToRender.forEach(log => {
+                const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
+                const displayName = userObj ? userObj.full_name : log.intern_name;
+
+                // Admin/Managers can edit/delete any log
+                const canEditDelete = currentUser.role === 'Admin' || currentUser.role === 'Manager';
+                let actionButtons = '';
+                if (canEditDelete) {
+                    actionButtons = `
+                        <button onclick="openEditLogModal('${log.id}')" class="btn-action edit" title="Edit Log" style="background: rgba(99, 102, 241, 0.1); color: var(--primary); padding: 5px 8px; border-radius: 4px; border: none; cursor: pointer; margin-right: 4px;"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteLog('${log.id}')" class="btn-action delete" title="Delete Log" style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 5px 8px; border-radius: 4px; border: none; cursor: pointer;"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                } else {
+                    actionButtons = `<span style="color:var(--text-muted); font-size:11px;">No Actions</span>`;
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${escapeHTML(displayName)}</td>
+                    <td>${log.date_logged}</td>
+                    <td>${log.check_in || '-'}</td>
+                    <td>${log.check_out || '-'}</td>
+                    <td style="font-weight:700;">${log.hours_worked} hrs</td>
+                    <td>
+                        <strong>${escapeHTML(log.tasks_completed)}</strong>
+                        ${log.blockers && log.blockers !== 'None' && log.blockers !== '' ? `<div style="color:var(--danger); font-size:12px; margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(log.blockers)}</div>` : ''}
+                    </td>
+                    <td><span class="badge ${log.deliverable_completed === 'Yes' ? 'badge-success' : 'badge-warning'}">${log.deliverable_completed || 'No'}</span></td>
+                    <td style="text-align: center; white-space: nowrap;">${actionButtons}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        let editingLogIdModal = null;
+
+        function openEditLogModal(logId) {
+            const log = state.logs.find(l => l.id === logId);
+            if (!log) return;
+
+            editingLogIdModal = logId;
+            
+            const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
+            const displayName = userObj ? `${userObj.full_name} (${userObj.role})` : log.intern_name;
+
+            document.getElementById('edit_log_intern_name').value = displayName;
+            document.getElementById('edit_log_date').value = log.date_logged;
+            document.getElementById('edit_log_hours').value = log.hours_worked;
+            document.getElementById('edit_log_checkin').value = log.check_in || "09:00";
+            document.getElementById('edit_log_checkout').value = log.check_out || "18:00";
+            document.getElementById('edit_log_category').value = log.task_category || "Other";
+            document.getElementById('edit_log_tasks').value = log.tasks_completed;
+            document.getElementById('edit_log_deliverable').value = log.deliverable_completed || "No";
+            document.getElementById('edit_log_blockers').value = log.blockers || "None";
+            document.getElementById('edit_log_skills').value = log.skills_used || "";
+            document.getElementById('edit_log_notes').value = log.notes || "";
+
+            // Populate mood rating buttons
+            document.querySelectorAll('#edit_log_mood_group .rating-btn').forEach(btn => {
+                if (parseInt(btn.dataset.value) === parseInt(log.mood || 5)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            document.getElementById('edit-log-modal').style.display = 'flex';
+        }
+
+        function closeEditLogModal() {
+            editingLogIdModal = null;
+            document.getElementById('edit-log-modal').style.display = 'none';
+        }
+
+        // Register edit form submit listener for modal
+        // (Runs directly as elements are already in the DOM)
+        const editFormModal = document.getElementById('editLogFormModal');
+        if (editFormModal) {
+            editFormModal.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                if (!editingLogIdModal) return;
+
+                const selectedLogDate = document.getElementById('edit_log_date').value;
+                const d = new Date();
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const localTodayStr = `${year}-${month}-${day}`;
+
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yestYear = yesterday.getFullYear();
+                const yestMonth = String(yesterday.getMonth() + 1).padStart(2, '0');
+                const yestDay = String(yesterday.getDate()).padStart(2, '0');
+                const localYesterdayStr = `${yestYear}-${yestMonth}-${yestDay}`;
+
+                if (selectedLogDate && (selectedLogDate < localYesterdayStr || selectedLogDate > localTodayStr)) {
+                    showToast("Daily log date must be yesterday or today.", "error");
+                    return;
+                }
+
+                const selectedMood = document.querySelector('#edit_log_mood_group .rating-btn.active').dataset.value;
+                const payload = {
+                    date_logged: selectedLogDate,
+                    hours_worked: parseFloat(document.getElementById('edit_log_hours').value),
+                    check_in: document.getElementById('edit_log_checkin').value,
+                    check_out: document.getElementById('edit_log_checkout').value,
+                    task_category: document.getElementById('edit_log_category').value,
+                    tasks_completed: document.getElementById('edit_log_tasks').value,
+                    deliverable_completed: document.getElementById('edit_log_deliverable').value,
+                    blockers: document.getElementById('edit_log_blockers').value || 'None',
+                    skills_used: document.getElementById('edit_log_skills').value || '',
+                    mood: parseInt(selectedMood),
+                    notes: document.getElementById('edit_log_notes').value || ''
+                };
+
+                try {
+                    const res = await apiFetch(`/logs/${editingLogIdModal}`, {
+                        method: 'PUT',
+                        body: payload
+                    });
+                    
+                    if (res.ok) {
+                        showToast("Daily log entry updated!", "success");
+                        closeEditLogModal();
+                        fetchData();
+                    } else {
+                        const data = await res.json();
+                        showToast(data.error || "Failed to update log", "error");
+                    }
+                } catch (err) {
+                    showToast("Failed to update log", "error");
+                }
             });
         }
 
