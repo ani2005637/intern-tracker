@@ -1208,6 +1208,22 @@ def add_announcement():
             "media_type": media_type,
             "created_at": datetime.datetime.utcnow()
         })
+
+        # Create notifications for all other approved active users
+        other_users = db.users.find({"username": {"$ne": user["username"]}, "approved": True})
+        for u in other_users:
+            try:
+                snippet = content[:40] + "..." if len(content) > 40 else content
+                db.notifications.insert_one({
+                    "username": u["username"],
+                    "message": f"New announcement from {user['full_name']}: '{snippet}'",
+                    "type": "announcement",
+                    "created_at": datetime.datetime.utcnow(),
+                    "read": False
+                })
+            except Exception as ne:
+                print(f"Failed to create announcement notification: {ne}")
+
         return jsonify({"message": "Announcement posted successfully!"}), 201
     except Exception as e:
         return jsonify({"error": f"Failed to post announcement: {str(e)}"}), 500
@@ -1225,6 +1241,12 @@ def get_direct_messages():
         return jsonify({"error": "Missing recipient parameter"}), 400
 
     try:
+        # Mark incoming messages from recipient to current user as seen
+        db.direct_messages.update_many(
+            {"sender": recipient, "recipient": user["username"], "seen": {"$ne": True}},
+            {"$set": {"seen": True}}
+        )
+
         query = {
             "$or": [
                 {"sender": user["username"], "recipient": recipient},
@@ -1264,11 +1286,96 @@ def add_direct_message():
             "iv": iv,
             "sender_key_enc": sender_key_enc,
             "recipient_key_enc": recipient_key_enc,
-            "created_at": datetime.datetime.utcnow()
+            "created_at": datetime.datetime.utcnow(),
+            "seen": False
         })
+
+        # Create message notification for target user
+        try:
+            db.notifications.insert_one({
+                "username": recipient,
+                "message": f"New secure message from {user['full_name']}",
+                "type": "direct_message",
+                "created_at": datetime.datetime.utcnow(),
+                "read": False
+            })
+        except Exception as ne:
+            print(f"Failed to create message notification: {ne}")
+
         return jsonify({"message": "Message sent successfully!"}), 201
     except Exception as e:
         return jsonify({"error": f"Failed to send message: {str(e)}"}), 500
+
+
+# ----------------- COLLABORATION: CONVERSATIONS LIST (E2EE) -----------------
+@app.route('/direct_messages/conversations', methods=['GET'])
+def get_conversations():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        # Find all DMs involving the current user
+        query = {"$or": [{"sender": user["username"]}, {"recipient": user["username"]}]}
+        messages = list(db.direct_messages.find(query, {"sender": 1, "recipient": 1, "created_at": 1}))
+        
+        conversations = {}
+        for m in messages:
+            other = m["recipient"] if m["sender"] == user["username"] else m["sender"]
+            if other not in conversations:
+                conversations[other] = {
+                    "count": 0,
+                    "last_message_time": m["created_at"]
+                }
+            conversations[other]["count"] += 1
+            if m["created_at"] > conversations[other]["last_message_time"]:
+                conversations[other]["last_message_time"] = m["created_at"]
+        
+        return jsonify(conversations)
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch conversation stats: {str(e)}"}), 500
+
+
+# ----------------- DELETE MESSAGE & ANNOUNCEMENT ENDPOINTS -----------------
+@app.route('/announcements/<announcement_id>', methods=['DELETE'])
+def delete_announcement(announcement_id):
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        ann = db.announcements.find_one({"_id": ObjectId(announcement_id)})
+        if not ann:
+            return jsonify({"error": "Announcement not found"}), 404
+        
+        # Sender, Admin, or Manager can delete
+        if ann["sender"] == user["username"] or user["role"] in ["Admin", "Manager"]:
+            db.announcements.delete_one({"_id": ObjectId(announcement_id)})
+            return jsonify({"message": "Announcement deleted successfully!"}), 200
+        else:
+            return jsonify({"error": "Permission denied. You can only delete your own posts."}), 403
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete announcement: {str(e)}"}), 500
+
+@app.route('/direct_messages/<message_id>', methods=['DELETE'])
+def delete_direct_message(message_id):
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        msg = db.direct_messages.find_one({"_id": ObjectId(message_id)})
+        if not msg:
+            return jsonify({"error": "Message not found"}), 404
+        
+        # Only the sender can delete their own message (unsend)
+        if msg["sender"] == user["username"]:
+            db.direct_messages.delete_one({"_id": ObjectId(message_id)})
+            return jsonify({"message": "Message deleted successfully!"}), 200
+        else:
+            return jsonify({"error": "Permission denied. You can only delete messages you sent."}), 403
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete message: {str(e)}"}), 500
 
 
 if __name__ == '__main__':

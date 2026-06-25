@@ -5074,6 +5074,13 @@
                     else if (item.sender_role === 'Manager') badgeClass = 'badge-warning';
                     else if (item.sender_role === 'Employee') badgeClass = 'badge-primary';
 
+                    const isAuthorOrSupervisor = item.sender === currentUser.username || currentUser.role === 'Admin' || currentUser.role === 'Manager';
+                    const deleteBtnHtml = isAuthorOrSupervisor ? `
+                        <button class="delete-announcement-btn" onclick="deleteAnnouncement('${item.id}')" title="Delete Announcement" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px 8px; transition:color 0.2s;" onmouseover="this.style.color='#f43f5e'" onmouseout="this.style.color='var(--text-muted)'">
+                            <i class="fa-solid fa-trash" style="font-size:12px;"></i>
+                        </button>
+                    ` : '';
+
                     html += `
                         <div class="announcement-card">
                             <div class="announcement-header">
@@ -5084,7 +5091,10 @@
                                         <span>@${escapeHTML(item.sender)}</span>
                                     </div>
                                 </div>
-                                <div class="announcement-time">${dateStr}</div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div class="announcement-time">${dateStr}</div>
+                                    ${deleteBtnHtml}
+                                </div>
                             </div>
                             <div class="announcement-body">
                                 ${escapeHTML(item.content)}
@@ -5100,6 +5110,25 @@
                 }
             } catch (err) {
                 console.error("Failed to load announcements", err);
+            }
+        }
+
+        async function deleteAnnouncement(announcementId) {
+            if (!confirm("Are you sure you want to delete this announcement?")) return;
+            try {
+                const res = await apiFetch(`/announcements/${announcementId}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    showToast("Announcement deleted successfully!");
+                    fetchAnnouncements();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Failed to delete announcement", "error");
+                }
+            } catch (err) {
+                showToast("Failed to delete announcement", "error");
+                console.error(err);
             }
         }
 
@@ -5293,9 +5322,41 @@
                 const list = await res.json();
                 
                 dmUsers = list.filter(u => u.username !== currentUser.username && !isTestUser(u.username, u.full_name));
-                filterDMUsers();
+                await refreshDMConversations();
             } catch (err) {
                 console.error("Failed to fetch DM users list", err);
+            }
+        }
+
+        async function refreshDMConversations() {
+            try {
+                const res = await apiFetch('/direct_messages/conversations');
+                if (!res.ok) return;
+                const conversations = await res.json();
+                
+                dmUsers.forEach(u => {
+                    const conv = conversations[u.username];
+                    if (conv) {
+                        u.messageCount = conv.count || 0;
+                        u.lastMessageTime = conv.last_message_time ? new Date(conv.last_message_time).getTime() : 0;
+                    } else {
+                        u.messageCount = 0;
+                        u.lastMessageTime = 0;
+                    }
+                });
+                
+                dmUsers.sort((a, b) => {
+                    const timeA = a.lastMessageTime || 0;
+                    const timeB = b.lastMessageTime || 0;
+                    if (timeA !== timeB) {
+                        return timeB - timeA;
+                    }
+                    return a.full_name.localeCompare(b.full_name);
+                });
+                
+                filterDMUsers();
+            } catch (err) {
+                console.error("Failed to refresh DM conversations", err);
             }
         }
 
@@ -5322,8 +5383,11 @@
                         <div class="chat-user-avatar">${initial}</div>
                         <div class="chat-user-info">
                             <div class="chat-user-name">
-                                <span>${escapeHTML(u.full_name)}</span>
-                                <div class="chat-user-dot ${statusDot}"></div>
+                                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">${escapeHTML(u.full_name)}</span>
+                                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                    ${u.messageCount > 0 ? `<span style="background: rgba(244,63,94,0.15); color: #f43f5e; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600;">${u.messageCount} msgs</span>` : ''}
+                                    <div class="chat-user-dot ${statusDot}"></div>
+                                </div>
                             </div>
                             <div class="chat-user-status">${u.role} (${u.title || ''})</div>
                         </div>
@@ -5409,13 +5473,26 @@
                         }
                     }
 
+                    const seenIcon = item.seen ? 
+                        `<i class="fa-solid fa-check-double" title="Seen" style="color:#22c55e; margin-left:4px;"></i>` : 
+                        `<i class="fa-solid fa-check" title="Sent" style="color:var(--text-muted); margin-left:4px;"></i>`;
+
+                    const deleteBtn = isSentByMe ? `
+                        <span class="delete-msg-btn" onclick="deleteDirectMessage('${item.id}', event)" title="Delete Message" style="cursor: pointer; color: var(--text-muted); opacity: 0.6; transition: opacity 0.2s; margin-left: 8px;" onmouseover="this.style.opacity='1'; this.style.color='#f43f5e'" onmouseout="this.style.opacity='0.6'; this.style.color='var(--text-muted)'">
+                            <i class="fa-solid fa-trash" style="font-size: 10px;"></i>
+                        </span>
+                    ` : '';
+
                     html += `
                         <div class="chat-bubble ${isSentByMe ? 'sent' : 'received'}">
                             <div class="chat-bubble-content">
                                 <div>${decryptedPayloadText}</div>
                                 ${mediaHtml}
                             </div>
-                            <div class="chat-bubble-time">${dateStr}</div>
+                            <div class="chat-bubble-time" style="display: flex; align-items: center; justify-content: ${isSentByMe ? 'flex-end' : 'flex-start'}; gap: 4px;">
+                                <span>${dateStr}</span>
+                                ${isSentByMe ? seenIcon + deleteBtn : ''}
+                            </div>
                         </div>`;
                 }
                 
@@ -5436,6 +5513,27 @@
                 }
             } catch (err) {
                 console.error("Failed to load DMs", err);
+            }
+        }
+
+        async function deleteDirectMessage(messageId, event) {
+            if (event) event.stopPropagation();
+            if (!confirm("Are you sure you want to delete this message?")) return;
+            try {
+                const res = await apiFetch(`/direct_messages/${messageId}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    showToast("Message deleted successfully!");
+                    await fetchDMMessages();
+                    await refreshDMConversations();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Failed to delete message", "error");
+                }
+            } catch (err) {
+                showToast("Failed to delete message", "error");
+                console.error(err);
             }
         }
 
@@ -5492,6 +5590,7 @@
                     input.value = "";
                     clearDMMedia();
                     await fetchDMMessages();
+                    await refreshDMConversations();
                 } else {
                     showToast("Failed to send message", "error");
                 }
@@ -5510,8 +5609,11 @@
                 const tabId = activeTab.dataset.tab;
                 if (tabId === 'announcements') {
                     fetchAnnouncements();
-                } else if (tabId === 'direct-messages' && dmActiveUser) {
-                    fetchDMMessages();
+                } else if (tabId === 'direct-messages') {
+                    refreshDMConversations();
+                    if (dmActiveUser) {
+                        fetchDMMessages();
+                    }
                 }
             }
         }, 5000);
