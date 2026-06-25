@@ -34,6 +34,9 @@ try:
     db.skills_log.create_index([("intern_name", pymongo.ASCENDING)])
     db.mentor_feedback.create_index([("intern_name", pymongo.ASCENDING)])
     db.notifications.create_index([("username", pymongo.ASCENDING), ("created_at", pymongo.DESCENDING)])
+    db.announcements.create_index([("created_at", pymongo.DESCENDING)])
+    db.direct_messages.create_index([("sender", pymongo.ASCENDING), ("recipient", pymongo.ASCENDING), ("created_at", pymongo.ASCENDING)])
+    db.direct_messages.create_index([("recipient", pymongo.ASCENDING), ("created_at", pymongo.ASCENDING)])
     print("Database indexes created/verified.")
 except Exception as ie:
     print(f"Warning: Failed to ensure database indexes: {ie}")

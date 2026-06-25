@@ -2443,7 +2443,9 @@
                    uname.startsWith('int_') ||
                    uname.startsWith('user_') ||
                    uname.includes('test') ||
+                   uname.includes('collab') ||
                    fname.includes('test') ||
+                   fname.includes('collab') ||
                    fname.includes('pending intern') ||
                    (fname.startsWith('pending') && /\d/.test(fname)) ||
                    uname.includes('pending');
@@ -5043,6 +5045,10 @@
                 const list = await res.json();
                 const feed = document.getElementById('announcements-feed');
                 
+                const currentHash = list.map(item => item.id).join('_');
+                if (currentHash === lastAnnouncementsHash) return;
+                lastAnnouncementsHash = currentHash;
+                
                 if (list.length === 0) {
                     feed.innerHTML = `
                         <div class="chat-empty-view" style="padding: 20px;">
@@ -5167,6 +5173,9 @@
         let dmUsers = [];
         let dmUploadedMediaUrl = "";
         let dmUploadedMediaType = "";
+        let lastAnnouncementsHash = "";
+        let lastDMMessagesHash = "";
+        const dmDecryptionCache = new Map();
         let dmMediaRecorder = null;
         let dmRecordedChunks = [];
         let dmRecordSeconds = 0;
@@ -5401,6 +5410,7 @@
             if (!targetUser) return;
 
             dmActiveUser = targetUser;
+            lastDMMessagesHash = ""; // Reset hash on user selection to force render
             
             document.getElementById('dm-chat-empty-state').style.display = 'none';
             document.getElementById('dm-chat-active-window').style.display = 'flex';
@@ -5430,6 +5440,10 @@
                 const list = await res.json();
                 const feed = document.getElementById('dm-messages-feed');
                 
+                const currentHash = list.map(item => item.id + "_" + (item.seen ? '1' : '0')).join('_');
+                if (currentHash === lastDMMessagesHash) return;
+                lastDMMessagesHash = currentHash;
+
                 const privKeyJWK = localStorage.getItem('e2e_private_key_' + currentUser.username);
                 if (!privKeyJWK) {
                     feed.innerHTML = '<div style="color:#ef4444; font-size:13px; padding:20px; text-align:center;"><i class="fa-solid fa-triangle-exclamation"></i> E2EE Private Key missing on this browser. Unable to decrypt messages.</div>';
@@ -5447,19 +5461,32 @@
                     let mediaUrl = "";
                     let mediaType = "";
                     
-                    try {
-                        const encryptedAESKey = isSentByMe ? item.sender_key_enc : item.recipient_key_enc;
-                        const aesKey = await decryptAESKeyWithRSA(rsaPrivateKey, encryptedAESKey);
-                        
-                        const decryptedStr = await decryptMessage(aesKey, item.ciphertext, item.iv);
-                        const payload = JSON.parse(decryptedStr);
-                        
-                        decryptedPayloadText = payload.text;
-                        mediaUrl = payload.media_url || "";
-                        mediaType = payload.media_type || "";
-                    } catch (decErr) {
-                        console.warn("Decryption failed for message", item._id, decErr);
-                        decryptedPayloadText = `<span style="color:#f43f5e; font-style:italic;"><i class="fa-solid fa-triangle-exclamation"></i> Decryption failed: Private key mismatch</span>`;
+                    if (dmDecryptionCache.has(item.id)) {
+                        const cached = dmDecryptionCache.get(item.id);
+                        decryptedPayloadText = cached.text;
+                        mediaUrl = cached.media_url;
+                        mediaType = cached.media_type;
+                    } else {
+                        try {
+                            const encryptedAESKey = isSentByMe ? item.sender_key_enc : item.recipient_key_enc;
+                            const aesKey = await decryptAESKeyWithRSA(rsaPrivateKey, encryptedAESKey);
+                            
+                            const decryptedStr = await decryptMessage(aesKey, item.ciphertext, item.iv);
+                            const payload = JSON.parse(decryptedStr);
+                            
+                            decryptedPayloadText = payload.text || "";
+                            mediaUrl = payload.media_url || "";
+                            mediaType = payload.media_type || "";
+                            
+                            dmDecryptionCache.set(item.id, {
+                                text: decryptedPayloadText,
+                                media_url: mediaUrl,
+                                media_type: mediaType
+                            });
+                        } catch (decErr) {
+                            console.warn("Decryption failed for message", item.id, decErr);
+                            decryptedPayloadText = `<span style="color:#f43f5e; font-style:italic;"><i class="fa-solid fa-triangle-exclamation"></i> Decryption failed: Private key mismatch</span>`;
+                        }
                     }
 
                     let mediaHtml = "";
