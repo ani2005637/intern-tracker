@@ -1940,9 +1940,15 @@
                 document.getElementById('nav-tasks').style.display = 'block';
                 document.getElementById('nav-activity-logs').style.display = 'none';
                 
-                // Hide assignment forms and expand backlogs/lists full-width
-                document.getElementById('task-assign-panel').style.display = 'none';
-                document.getElementById('tasks-list-panel').style.gridColumn = 'span 2';
+                // Move task creation panel to Tasks page & display it
+                const taskGrid = document.querySelector('#tasks .grid-2');
+                const assignPanel = document.getElementById('task-assign-panel');
+                if (taskGrid && assignPanel) {
+                    taskGrid.insertBefore(assignPanel, document.getElementById('tasks-list-panel'));
+                    assignPanel.style.display = 'block';
+                    assignPanel.style.marginTop = '0';
+                }
+                document.getElementById('tasks-list-panel').style.gridColumn = '';
                 
                 document.getElementById('feedback-form-panel').style.display = 'none';
                 document.getElementById('feedback-list-panel').style.gridColumn = 'span 2';
@@ -1958,8 +1964,14 @@
                 document.getElementById('nav-tasks').style.display = 'none';
                 document.getElementById('nav-activity-logs').style.display = 'block';
 
-                // Show assignment panels
-                document.getElementById('task-assign-panel').style.display = 'block';
+                // Move task assignment panel back to Activity Logs page & display it
+                const activityLogsSection = document.getElementById('activity-logs');
+                const assignPanel = document.getElementById('task-assign-panel');
+                if (activityLogsSection && assignPanel) {
+                    activityLogsSection.appendChild(assignPanel);
+                    assignPanel.style.display = 'block';
+                    assignPanel.style.marginTop = '20px';
+                }
                 document.getElementById('tasks-list-panel').style.gridColumn = 'span 1';
                 
                 document.getElementById('feedback-form-panel').style.display = 'block';
@@ -1977,6 +1989,17 @@
                     document.getElementById('task-view-toggle-container').style.display = 'flex';
                     setTaskView('team'); // Reset view to team tasks by default
                 }
+            }
+
+            // Customize create-task panel titles/buttons based on role
+            const taskFormTitle = document.querySelector('#task-assign-panel .panel-title span');
+            const taskSubmitBtn = document.querySelector('#task-assign-panel .btn-submit');
+            if (currentUser.role === 'Intern' || currentUser.role === 'Employee') {
+                if (taskFormTitle) taskFormTitle.innerText = "Create Task";
+                if (taskSubmitBtn) taskSubmitBtn.innerHTML = '<i class="fa-solid fa-circle-plus"></i> Create Task';
+            } else {
+                if (taskFormTitle) taskFormTitle.innerText = "Create Project Task";
+                if (taskSubmitBtn) taskSubmitBtn.innerHTML = '<i class="fa-solid fa-list-check"></i> Assign Task';
             }
 
             // Update main header text for active tab
@@ -2076,10 +2099,17 @@
                             fbSelect.innerHTML += optionHtml;
                         }
                     } else if (currentUser.role === 'Employee') {
-                        // Employee can assign to Intern only
-                        if (u.role === 'Intern') {
+                        // Employee can assign to Intern only or themselves
+                        if (u.role === 'Intern' || u.username === currentUser.username) {
                             taskSelect.innerHTML += optionHtml;
+                        }
+                        if (u.role === 'Intern') {
                             fbSelect.innerHTML += optionHtml;
+                        }
+                    } else if (currentUser.role === 'Intern') {
+                        // Intern can only assign to themselves
+                        if (u.username === currentUser.username) {
+                            taskSelect.innerHTML += optionHtml;
                         }
                     }
                 });
@@ -2118,7 +2148,15 @@
                         }
                     }
                 }
-                if (taskSelect) taskSelect.value = previousTaskVal;
+                if (taskSelect) {
+                    if (currentUser.role === 'Intern') {
+                        taskSelect.value = currentUser.username;
+                    } else if (currentUser.role === 'Employee' && !previousTaskVal) {
+                        taskSelect.value = currentUser.username;
+                    } else {
+                        taskSelect.value = previousTaskVal;
+                    }
+                }
                 if (fbSelect) fbSelect.value = previousFbVal;
 
                 renderTeamRoster();

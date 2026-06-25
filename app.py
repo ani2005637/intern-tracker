@@ -572,10 +572,7 @@ def add_task():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    # Interns cannot assign tasks
-    if user['role'] == 'Intern':
-        return jsonify({"error": "Interns cannot assign tasks"}), 403
-
+    # Validation of target user and role permissions
     data = request.json
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -597,15 +594,20 @@ def add_task():
     if due_date_err:
         return jsonify({"error": due_date_err}), 400
 
-    # Role check: Employees can ONLY assign tasks to Interns.
     target_user = db.users.find_one({"username": target_username})
     if not target_user:
         return jsonify({"error": "Target user not found"}), 404
         
     target_role = target_user['role']
     
-    if user['role'] == 'Employee' and target_role != 'Intern':
-        return jsonify({"error": "Employees can only assign tasks to Interns"}), 403
+    # Enforce role rules:
+    # 1. Intern can only assign tasks to themselves
+    if user['role'] == 'Intern' and target_username != user['username']:
+        return jsonify({"error": "Forbidden: Interns can only assign tasks to themselves"}), 403
+
+    # 2. Employee can only assign tasks to themselves or Interns
+    if user['role'] == 'Employee' and target_username != user['username'] and target_role != 'Intern':
+        return jsonify({"error": "Forbidden: Employees can only assign tasks to themselves or Interns"}), 403
 
     try:
         db.tasks.insert_one({
@@ -623,20 +625,22 @@ def add_task():
             "completed_at": None
         })
         
-        # Create notification for target user
-        try:
-            db.notifications.insert_one({
-                "username": target_username,
-                "message": f"New task assigned by {user['full_name']}: '{task_name}'",
-                "type": "task_assignment",
-                "created_at": datetime.datetime.utcnow(),
-                "read": False
-            })
-        except Exception as ne:
-            print(f"Failed to create notification: {ne}")
+        # Create notification for target user (suppressed if self-assigned)
+        if target_username != user['username']:
+            try:
+                db.notifications.insert_one({
+                    "username": target_username,
+                    "message": f"New task assigned by {user['full_name']}: '{task_name}'",
+                    "type": "task_assignment",
+                    "created_at": datetime.datetime.utcnow(),
+                    "read": False
+                })
+            except Exception as ne:
+                print(f"Failed to create notification: {ne}")
             
     except Exception as e:
         return jsonify({"error": f"Task creation failed: {str(e)}"}), 500
+
 
     return jsonify({"message": "Task created successfully!"}), 201
 
