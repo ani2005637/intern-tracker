@@ -38,10 +38,11 @@ try:
 except Exception as ie:
     print(f"Warning: Failed to ensure database indexes: {ie}")
 
-# Startup migration to ensure all existing users have 'approved: True'
+# Startup migration to ensure all existing users have 'approved: True' and 'restricted: False'
 try:
-    print("Running startup migration to approve existing users...")
+    print("Running startup migration to approve existing users and initialize restriction state...")
     db.users.update_many({"approved": {"$exists": False}}, {"$set": {"approved": True}})
+    db.users.update_many({"restricted": {"$exists": False}}, {"$set": {"restricted": False}})
     print("Startup migration completed successfully.")
 except Exception as me:
     print(f"Warning: Startup migration failed: {me}")
@@ -205,6 +206,10 @@ def login():
     # Check if user account is approved
     if not user.get('approved', False):
         return jsonify({"error": "Your account is pending administrator approval. Please contact an admin."}), 403
+
+    # Check if user account is restricted
+    if user.get('restricted', False):
+        return jsonify({"error": "Your account has been temporarily restricted by an administrator or manager. Please contact support."}), 403
 
     # Store user identity details inside the session
     session['user_id'] = str(user['_id'])
@@ -981,6 +986,90 @@ def approve_user(user_id):
         print(f"Failed to create approval notification: {ne}")
         
     return jsonify({"message": f"User {target_user['full_name']} has been approved successfully!"})
+
+
+# ----------------- USER MANAGEMENT: RESTRICT USER (Admin & Manager) -----------------
+@app.route('/users/<user_id>/restrict', methods=['PUT'])
+def restrict_user(user_id):
+    user = get_logged_in_user()
+    if not user or user['role'] not in ['Admin', 'Manager']:
+        return jsonify({"error": "Unauthorized: Access denied"}), 401
+        
+    try:
+        target_user = db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return jsonify({"error": "Invalid user ID format"}), 400
+        
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+        
+    # Prevent self-restriction
+    if str(target_user['_id']) == str(user['_id']):
+        return jsonify({"error": "You cannot restrict yourself"}), 400
+        
+    role_weights = {"Intern": 1, "Employee": 2, "Manager": 3, "Admin": 4}
+    user_weight = role_weights.get(user['role'], 0)
+    target_weight = role_weights.get(target_user['role'], 0)
+    
+    # Enforce hierarchical access control: Rank(A) > Rank(B) (Bypassed for Admin)
+    if user['role'] != 'Admin' and user_weight <= target_weight:
+        return jsonify({"error": "Forbidden: You can only restrict users with a lower rank than yours"}), 403
+        
+    db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"restricted": True}})
+    
+    # Create notification for target user
+    try:
+        db.notifications.insert_one({
+            "username": target_user['username'],
+            "message": "Your account has been temporarily restricted by an administrator or manager. Please contact support.",
+            "type": "account_restricted",
+            "created_at": datetime.datetime.utcnow(),
+            "read": False
+        })
+    except Exception as ne:
+        print(f"Failed to create restriction notification: {ne}")
+        
+    return jsonify({"message": f"User {target_user['full_name']} has been restricted successfully!"})
+
+
+# ----------------- USER MANAGEMENT: UNRESTRICT USER (Admin & Manager) -----------------
+@app.route('/users/<user_id>/unrestrict', methods=['PUT'])
+def unrestrict_user(user_id):
+    user = get_logged_in_user()
+    if not user or user['role'] not in ['Admin', 'Manager']:
+        return jsonify({"error": "Unauthorized: Access denied"}), 401
+        
+    try:
+        target_user = db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return jsonify({"error": "Invalid user ID format"}), 400
+        
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+        
+    role_weights = {"Intern": 1, "Employee": 2, "Manager": 3, "Admin": 4}
+    user_weight = role_weights.get(user['role'], 0)
+    target_weight = role_weights.get(target_user['role'], 0)
+    
+    # Enforce hierarchical access control: Rank(A) > Rank(B) (Bypassed for Admin)
+    if user['role'] != 'Admin' and user_weight <= target_weight:
+        return jsonify({"error": "Forbidden: You can only unrestrict users with a lower rank than yours"}), 403
+        
+    db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"restricted": False}})
+    
+    # Create notification for target user
+    try:
+        db.notifications.insert_one({
+            "username": target_user['username'],
+            "message": "Your restriction has been lifted! You can now log in and log hours again.",
+            "type": "account_unrestricted",
+            "created_at": datetime.datetime.utcnow(),
+            "read": False
+        })
+    except Exception as ne:
+        print(f"Failed to create unrestriction notification: {ne}")
+        
+    return jsonify({"message": f"User {target_user['full_name']} restriction lifted successfully!"})
 
 
 # ----------------- SESSION LOGS API ENDPOINT (Admin & Manager Only) -----------------

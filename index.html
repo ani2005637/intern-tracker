@@ -1104,7 +1104,7 @@
                                     <th>Username / Email</th>
                                     <th>Designation</th>
                                     <th>Role</th>
-                                    <th>Approval</th>
+                                    <th>Account Status</th>
                                     <th>Activity Count</th>
                                     <th>Status</th>
                                     <th style="width: 120px; text-align: center;">Actions</th>
@@ -2149,7 +2149,7 @@
 
                 const tr = document.createElement('tr');
                 
-                // Set actions (Approve, Delete buttons)
+                // Set actions (Approve, Restrict, Delete buttons)
                 let actionHtml = '';
                 if (u.username === currentUser.username) {
                     actionHtml = `<span style="color: var(--text-muted); font-size: 13px; font-style: italic;">(You)</span>`;
@@ -2172,17 +2172,51 @@
                         `;
                     }
 
+                    let restrictBtn = '';
+                    if (u.approved) {
+                        let canRestrict = false;
+                        if (currentUser.role === 'Admin') {
+                            canRestrict = true;
+                        } else if (currentUser.role === 'Manager') {
+                            if (u.role === 'Employee' || u.role === 'Intern') {
+                                canRestrict = true;
+                            }
+                        }
+
+                        if (canRestrict) {
+                            if (u.restricted) {
+                                restrictBtn = `
+                                    <button class="btn btn-success btn-sm" onclick="unrestrictUser('${u.id}', '${escapeHTML(u.full_name)}')">
+                                        <i class="fa-solid fa-user-check"></i> Unrestrict
+                                    </button>
+                                `;
+                            } else {
+                                restrictBtn = `
+                                    <button class="btn btn-warning btn-sm" onclick="restrictUser('${u.id}', '${escapeHTML(u.full_name)}')">
+                                        <i class="fa-solid fa-user-slash"></i> Restrict
+                                    </button>
+                                `;
+                            }
+                        }
+                    }
+
                     if (canDelete) {
                         actionHtml = `
                             <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
                                 ${approveBtn}
+                                ${restrictBtn}
                                 <button class="btn btn-danger btn-sm" onclick="removeUser('${u.id}', '${escapeHTML(u.full_name)}')">
                                     <i class="fa-solid fa-trash-can"></i> Remove
                                 </button>
                             </div>
                         `;
-                    } else if (approveBtn) {
-                        actionHtml = approveBtn;
+                    } else if (approveBtn || restrictBtn) {
+                        actionHtml = `
+                            <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+                                ${approveBtn}
+                                ${restrictBtn}
+                            </div>
+                        `;
                     } else {
                         actionHtml = `<span style="color: var(--text-muted); font-size: 13px;">No Access</span>`;
                     }
@@ -2208,12 +2242,14 @@
                     roleHtml = `<span class="badge ${badgeClass}">${u.role}</span>`;
                 }
 
-                // Render approval badge
+                // Render approval / account status badge
                 let approvalHtml = '';
-                if (u.approved) {
-                    approvalHtml = `<span class="badge badge-success"><i class="fa-solid fa-user-check"></i> Approved</span>`;
-                } else {
+                if (!u.approved) {
                     approvalHtml = `<span class="badge badge-warning"><i class="fa-solid fa-user-clock"></i> Pending</span>`;
+                } else if (u.restricted) {
+                    approvalHtml = `<span class="badge badge-danger"><i class="fa-solid fa-user-slash"></i> Restricted</span>`;
+                } else {
+                    approvalHtml = `<span class="badge badge-success"><i class="fa-solid fa-user-check"></i> Approved</span>`;
                 }
 
                 // Calculate activity metrics
@@ -3689,6 +3725,54 @@
                 }
             } catch (err) {
                 showToast("Failed to approve user", "error");
+            }
+        }
+
+        // Restrict User Handler (Admin/Manager only)
+        async function restrictUser(userId, fullName) {
+            if (!confirm(`Are you sure you want to restrict user ${fullName}? They will be temporarily blocked from logging in.`)) return;
+            try {
+                const res = await apiFetch(`/users/${userId}/restrict`, {
+                    method: 'PUT'
+                });
+                if (res.ok) {
+                    showToast(`User ${fullName} has been restricted successfully!`);
+                    
+                    // Re-populate dropdowns and reload rosters
+                    await populateDropdowns(); 
+                    
+                    // Refresh data in other tabs
+                    fetchData();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Failed to restrict user", "error");
+                }
+            } catch (err) {
+                showToast("Failed to restrict user", "error");
+            }
+        }
+
+        // Unrestrict User Handler (Admin/Manager only)
+        async function unrestrictUser(userId, fullName) {
+            if (!confirm(`Are you sure you want to unrestrict user ${fullName}? Their access will be restored.`)) return;
+            try {
+                const res = await apiFetch(`/users/${userId}/unrestrict`, {
+                    method: 'PUT'
+                });
+                if (res.ok) {
+                    showToast(`User ${fullName} restriction lifted successfully!`);
+                    
+                    // Re-populate dropdowns and reload rosters
+                    await populateDropdowns(); 
+                    
+                    // Refresh data in other tabs
+                    fetchData();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Failed to unrestrict user", "error");
+                }
+            } catch (err) {
+                showToast("Failed to unrestrict user", "error");
             }
         }
 
