@@ -309,11 +309,23 @@ def get_users():
     # Fetch users
     users = list(db.users.find(query).sort("full_name", 1))
     
+    # Optimize N+1 query: Fetch the latest session for all users in a single aggregation query
+    try:
+        pipeline = [
+            {"$sort": {"login_time": -1}},
+            {"$group": {
+                "_id": "$username",
+                "login_time": {"$first": "$login_time"},
+                "logout_time": {"$first": "$logout_time"}
+            }}
+        ]
+        sessions = {s["_id"]: s for s in db.session_logs.aggregate(pipeline)}
+    except Exception as ae:
+        print(f"Warning: Session aggregation failed: {ae}")
+        sessions = {}
+
     for u in users:
-        latest_session = db.session_logs.find_one(
-            {"username": u['username']},
-            sort=[("login_time", pymongo.DESCENDING)]
-        )
+        latest_session = sessions.get(u['username'])
         if latest_session:
             u['last_login'] = latest_session.get('login_time')
             u['last_logout'] = latest_session.get('logout_time')
@@ -1320,7 +1332,7 @@ def get_conversations():
     try:
         # Find all DMs involving the current user
         query = {"$or": [{"sender": user["username"]}, {"recipient": user["username"]}]}
-        messages = list(db.direct_messages.find(query, {"sender": 1, "recipient": 1, "created_at": 1}))
+        messages = list(db.direct_messages.find(query, {"sender": 1, "recipient": 1, "created_at": 1, "seen": 1}))
         
         conversations = {}
         for m in messages:
@@ -1328,9 +1340,20 @@ def get_conversations():
             if other not in conversations:
                 conversations[other] = {
                     "count": 0,
+                    "unread_count": 0,
+                    "received_count": 0,
                     "last_message_time": m["created_at"]
                 }
+            
+            # Total messages in the conversation
             conversations[other]["count"] += 1
+            
+            # Messages sent BY THE OTHER USER
+            if m["sender"] == other:
+                conversations[other]["received_count"] += 1
+                if not m.get("seen", False):
+                    conversations[other]["unread_count"] += 1
+
             if m["created_at"] > conversations[other]["last_message_time"]:
                 conversations[other]["last_message_time"] = m["created_at"]
         
@@ -1354,6 +1377,13 @@ def delete_announcement(announcement_id):
         # Sender, Admin, or Manager can delete
         if ann["sender"] == user["username"] or user["role"] in ["Admin", "Manager"]:
             db.announcements.delete_one({"_id": ObjectId(announcement_id)})
+            
+            # Clean up notifications related to this announcement
+            db.notifications.delete_many({
+                "type": "announcement",
+                "message": {"$regex": f"New announcement from {ann['sender_fullname']}"}
+            })
+            
             return jsonify({"message": "Announcement deleted successfully!"}), 200
         else:
             return jsonify({"error": "Permission denied. You can only delete your own posts."}), 403
@@ -1374,6 +1404,15 @@ def delete_direct_message(message_id):
         # Only the sender can delete their own message (unsend)
         if msg["sender"] == user["username"]:
             db.direct_messages.delete_one({"_id": ObjectId(message_id)})
+            
+            # Clean up unread notifications related to this DM from sender to recipient
+            db.notifications.delete_many({
+                "username": msg["recipient"],
+                "type": "direct_message",
+                "message": f"New secure message from {user['full_name']}",
+                "read": False
+            })
+            
             return jsonify({"message": "Message deleted successfully!"}), 200
         else:
             return jsonify({"error": "Permission denied. You can only delete messages you sent."}), 403

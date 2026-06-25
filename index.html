@@ -2540,9 +2540,9 @@
                     fetchAnnouncements();
                 } else if (tabId === 'direct-messages') {
                     fetchDMUsersList();
+                } else {
+                    fetchData(); // Only dynamically fetch latest workspace data for non-messaging tabs
                 }
-
-                fetchData(); // Dynamically fetch latest data when switching tabs
             });
         });
 
@@ -3996,7 +3996,18 @@
                             if (!notif.read) {
                                 const alreadyKnown = state.notifications.find(n => n.id === notif.id);
                                 if (!alreadyKnown) {
-                                    showToast(notif.message, "info");
+                                    // Suppress DM toast if we are currently chatting with the sender on the Direct Messages tab
+                                    let suppress = false;
+                                    const activeTab = document.querySelector('.nav-item.active');
+                                    const isDMsActive = activeTab && activeTab.dataset.tab === 'direct-messages';
+                                    if (isDMsActive && notif.type === 'direct_message' && dmActiveUser) {
+                                        if (notif.message.includes(dmActiveUser.full_name)) {
+                                            suppress = true;
+                                        }
+                                    }
+                                    if (!suppress) {
+                                        showToast(notif.message, "info");
+                                    }
                                 }
                             }
                         });
@@ -5346,10 +5357,12 @@
                 dmUsers.forEach(u => {
                     const conv = conversations[u.username];
                     if (conv) {
-                        u.messageCount = conv.count || 0;
+                        u.messageCount = conv.received_count || 0;
+                        u.unreadCount = conv.unread_count || 0;
                         u.lastMessageTime = conv.last_message_time ? new Date(conv.last_message_time).getTime() : 0;
                     } else {
                         u.messageCount = 0;
+                        u.unreadCount = 0;
                         u.lastMessageTime = 0;
                     }
                 });
@@ -5387,6 +5400,13 @@
                 const isOnline = u.status === 'Available';
                 const statusDot = isOnline ? 'online' : 'offline';
                 
+                let badgeHtml = "";
+                if (u.unreadCount > 0) {
+                    badgeHtml = `<span style="background: #ef4444; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600;">${u.unreadCount} new</span>`;
+                } else if (u.messageCount > 0) {
+                    badgeHtml = `<span style="background: rgba(255,255,255,0.08); color: var(--text-muted); font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 500;">${u.messageCount} msgs</span>`;
+                }
+
                 html += `
                     <div class="chat-user-item ${isActive ? 'active' : ''}" onclick="selectDMUser('${u.username}')">
                         <div class="chat-user-avatar">${initial}</div>
@@ -5394,7 +5414,7 @@
                             <div class="chat-user-name">
                                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">${escapeHTML(u.full_name)}</span>
                                 <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                                    ${u.messageCount > 0 ? `<span style="background: rgba(244,63,94,0.15); color: #f43f5e; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600;">${u.messageCount} msgs</span>` : ''}
+                                    ${badgeHtml}
                                     <div class="chat-user-dot ${statusDot}"></div>
                                 </div>
                             </div>
