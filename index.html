@@ -1728,6 +1728,20 @@
         // Cache object holding current state
         let currentUser = null;
         let activeUsers = []; // Stores list of users dynamically fetched
+
+        function isTestUser(username, fullName) {
+            const uname = (username || '').toLowerCase().trim();
+            const fname = (fullName || '').toLowerCase().trim();
+            return uname.startsWith('mgr_') ||
+                   uname.startsWith('emp_') ||
+                   uname.startsWith('int_') ||
+                   uname.startsWith('user_') ||
+                   uname.includes('test') ||
+                   fname.includes('test') ||
+                   fname.includes('pending intern') ||
+                   (fname.startsWith('pending') && /\d/.test(fname)) ||
+                   uname.includes('pending');
+        }
         let editingLogId = null; // Holds the ID of the log currently being updated
         let currentTaskView = 'team'; // Tracks workspace view: 'team' vs 'my'
         
@@ -1995,7 +2009,8 @@
         async function populateDropdowns() {
             try {
                 const res = await apiFetch('/users');
-                activeUsers = await res.json();
+                const allUsers = await res.json();
+                activeUsers = allUsers.filter(u => !isTestUser(u.username, u.full_name));
 
                 // Save currently selected values before rebuilding
                 const dashFilter = document.getElementById('dash-user-filter');
@@ -2467,9 +2482,10 @@
                     summaryTbody.innerHTML = '';
 
                     // Filter users according to role permissions:
-                    // Admin sees Manager, Employee, Intern
-                    // Manager sees Employee, Intern
+                    // Admin sees Manager, Employee, Intern (only approved users)
+                    // Manager sees Employee, Intern (only approved users)
                     const subordinateUsers = activeUsers.filter(u => {
+                        if (!u.approved) return false;
                         if (currentUser.role === 'Admin') {
                             return u.role === 'Manager' || u.role === 'Employee' || u.role === 'Intern';
                         } else if (currentUser.role === 'Manager') {
@@ -2675,18 +2691,7 @@
             let rawLogs = (state.sessionLogs || []).filter(log => log.role === 'Employee' || log.role === 'Intern');
             
             // Filter out test IDs / test usernames
-            rawLogs = rawLogs.filter(log => {
-                const usernameLower = (log.username || '').toLowerCase();
-                const fullNameLower = (log.full_name || '').toLowerCase();
-                if (usernameLower.startsWith('test') || 
-                    usernameLower.startsWith('mgr_') || 
-                    usernameLower.startsWith('emp_') || 
-                    usernameLower.startsWith('int_') ||
-                    fullNameLower.includes('test')) {
-                    return false;
-                }
-                return true;
-            });
+            rawLogs = rawLogs.filter(log => !isTestUser(log.username, log.full_name));
             
             if (selectedUser !== 'ALL') {
                 rawLogs = rawLogs.filter(log => (log.username || '').toLowerCase().trim() === selectedUser.toLowerCase().trim());
@@ -3177,7 +3182,18 @@
             try {
                 const res = await apiFetch('/notifications');
                 if (res.ok) {
-                    const newNotifications = await res.json();
+                    let newNotifications = await res.json();
+                    
+                    // Filter out test notifications
+                    newNotifications = newNotifications.filter(notif => {
+                        const msg = (notif.message || '').toLowerCase();
+                        return !msg.includes('test') && 
+                               !msg.includes('pending intern') && 
+                               !msg.includes('mgr_') && 
+                               !msg.includes('emp_') && 
+                               !msg.includes('int_') && 
+                               !msg.includes('user_');
+                    });
                     
                     if (showToasts && state.notifications && state.notifications.length > 0) {
                         newNotifications.forEach(notif => {
