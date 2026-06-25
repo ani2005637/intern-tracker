@@ -5403,8 +5403,6 @@
                 let badgeHtml = "";
                 if (u.unreadCount > 0) {
                     badgeHtml = `<span style="background: #ef4444; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 600;">${u.unreadCount} new</span>`;
-                } else if (u.messageCount > 0) {
-                    badgeHtml = `<span style="background: rgba(255,255,255,0.08); color: var(--text-muted); font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 500;">${u.messageCount} msgs</span>`;
                 }
 
                 html += `
