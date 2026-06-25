@@ -1675,9 +1675,14 @@
 
                 <!-- Team Directory & User Management Panel (Visible to Admins and Managers) -->
                 <div class="panel" id="team-roster-panel" style="display: none; margin-bottom: 30px;">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-users-gear" style="color: var(--primary);"></i>
-                        <span>Team Directory & User Management</span>
+                    <div class="panel-title" style="justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-users-gear" style="color: var(--primary);"></i>
+                            <span>Team Directory & User Management</span>
+                        </div>
+                        <button class="btn-primary btn-sm" onclick="openCreateMemberModal()" style="border-radius: 8px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-user-plus"></i> Add New Member
+                        </button>
                     </div>
                     <div class="table-responsive">
                         <table>
@@ -2454,6 +2459,55 @@
                 </div>
                 <button type="submit" class="btn-submit" style="margin-top: 15px; width: 100%;">
                     <i class="fa-solid fa-floppy-disk"></i> Update Log Entry
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Member Modal -->
+    <div id="create-member-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);">
+        <div class="panel" style="width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; margin: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+            <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Create New Member Credentials</span>
+                </div>
+                <button onclick="closeCreateMemberModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="createMemberForm" style="margin-top: 15px;" onsubmit="handleCreateMemberSubmit(event)">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="create_member_username">Username</label>
+                    <input type="text" id="create_member_username" required placeholder="e.g. j.doe" autocomplete="username">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="create_member_password">Password</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="create_member_password" required placeholder="Enter password" style="flex: 1;" autocomplete="new-password">
+                        <button type="button" class="btn-secondary btn-sm" onclick="generateRandomPassword()" style="border-radius: 8px; font-size: 11px;">Generate</button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="create_member_fullname">Full Name</label>
+                    <input type="text" id="create_member_fullname" required placeholder="e.g. John Doe">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="create_member_email">Email Address</label>
+                    <input type="email" id="create_member_email" required placeholder="e.g. john.doe@sannainnovations.com">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="create_member_role">Portal Role</label>
+                        <select id="create_member_role" required>
+                            <!-- Dynamically populated -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="create_member_title">Job Title / Designation</label>
+                        <input type="text" id="create_member_title" required placeholder="e.g. Junior Developer">
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top: 15px; width: 100%;">
+                    <i class="fa-solid fa-user-plus"></i> Create User Account
                 </button>
             </form>
         </div>
@@ -4007,6 +4061,7 @@
 
         // Fetch and Render Notifications
         async function fetchNotifications(showToasts = false) {
+            if (!currentUser) return;
             try {
                 const res = await apiFetch('/notifications');
                 if (res.ok) {
@@ -4579,6 +4634,85 @@
             }
         }
 
+        // --- Supervisor User Creation Modal Logic ---
+        function openCreateMemberModal() {
+            // Clear inputs
+            document.getElementById('create_member_username').value = '';
+            document.getElementById('create_member_fullname').value = '';
+            document.getElementById('create_member_email').value = '';
+            document.getElementById('create_member_title').value = '';
+            
+            // Populate roles select dropdown based on creator role
+            const roleSelect = document.getElementById('create_member_role');
+            roleSelect.innerHTML = '';
+            if (currentUser.role === 'Admin') {
+                roleSelect.innerHTML = `
+                    <option value="Intern">Intern</option>
+                    <option value="Employee">Employee</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Admin">Admin</option>
+                `;
+            } else if (currentUser.role === 'Manager') {
+                roleSelect.innerHTML = `
+                    <option value="Intern">Intern</option>
+                    <option value="Employee">Employee</option>
+                `;
+            }
+            
+            // Generate a default random password
+            generateRandomPassword();
+            
+            // Show modal
+            document.getElementById('create-member-modal').style.display = 'flex';
+        }
+
+        function closeCreateMemberModal() {
+            document.getElementById('create-member-modal').style.display = 'none';
+        }
+
+        function generateRandomPassword() {
+            const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+            let pass = "";
+            for (let i = 0; i < 10; i++) {
+                pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('create_member_password').value = pass;
+        }
+
+        async function handleCreateMemberSubmit(e) {
+            e.preventDefault();
+            const username = document.getElementById('create_member_username').value.trim();
+            const password = document.getElementById('create_member_password').value;
+            const full_name = document.getElementById('create_member_fullname').value.trim();
+            const email = document.getElementById('create_member_email').value.trim();
+            const role = document.getElementById('create_member_role').value;
+            const title = document.getElementById('create_member_title').value.trim();
+
+            const payload = {
+                username, password, full_name, email, role, title
+            };
+
+            try {
+                const res = await apiFetch('/users/create', {
+                    method: 'POST',
+                    body: payload
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || "User created successfully!");
+                    closeCreateMemberModal();
+                    
+                    // Re-populate dropdowns and reload rosters
+                    await populateDropdowns();
+                } else {
+                    showToast(data.error || "Failed to create user", "error");
+                }
+            } catch (err) {
+                showToast("Failed to create user", "error");
+                console.error(err);
+            }
+        }
+
         // Form Submit: Create Project Task
         document.getElementById('taskForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -5082,6 +5216,7 @@
         }
 
         async function fetchAnnouncements() {
+            if (!currentUser) return;
             try {
                 const res = await apiFetch('/announcements');
                 if (!res.ok) return;
@@ -5381,6 +5516,7 @@
         }
 
         async function refreshDMConversations() {
+            if (!currentUser) return;
             try {
                 const res = await apiFetch('/direct_messages/conversations');
                 if (!res.ok) return;
@@ -5681,6 +5817,7 @@
 
         // Polling loop
         setInterval(() => {
+            if (!currentUser) return;
             const activeTab = document.querySelector('.nav-item.active');
             if (activeTab) {
                 const tabId = activeTab.dataset.tab;

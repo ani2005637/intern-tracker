@@ -186,6 +186,55 @@ def signup():
 
     return jsonify({"message": "Registration successful! Your account is pending administrator approval."}), 201
 
+@app.route('/users/create', methods=['POST'])
+def create_user_by_supervisor():
+    user = get_logged_in_user()
+    if not user or user['role'] not in ['Admin', 'Manager']:
+        return jsonify({"error": "Unauthorized: Access denied"}), 401
+        
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    username = data.get('username', '').strip().lower()
+    password = data.get('password', '')
+    full_name = data.get('full_name', '').strip()
+    role = data.get('role', '').strip()
+    email = data.get('email', '').strip()
+    title = data.get('title', '').strip()
+
+    if not username or not password or not full_name or not role or not email or not title:
+        return jsonify({"error": "All fields are required"}), 400
+
+    if role not in ['Admin', 'Manager', 'Employee', 'Intern']:
+        return jsonify({"error": "Invalid role specified"}), 400
+
+    # Hierarchical role check
+    if user['role'] == 'Manager' and role not in ['Employee', 'Intern']:
+        return jsonify({"error": "Forbidden: Managers can only create Employee or Intern accounts"}), 403
+
+    # Check if username exists
+    existing = db.users.find_one({"username": username})
+    if existing:
+        return jsonify({"error": "Username already taken"}), 400
+
+    hashed_pw = generate_password_hash(password)
+    try:
+        db.users.insert_one({
+            "username": username,
+            "password_hash": hashed_pw,
+            "full_name": full_name,
+            "role": role,
+            "email": email,
+            "title": title,
+            "approved": True, # Pre-approved since created by supervisor
+            "restricted": False,
+            "created_at": datetime.datetime.utcnow()
+        })
+        return jsonify({"message": f"Successfully created user account for {full_name} ({role})!"}), 201
+    except Exception as e:
+        return jsonify({"error": f"Failed to create user: {str(e)}"}), 500
+
 
 @app.route('/login', methods=['POST'])
 def login():
