@@ -1104,5 +1104,172 @@ def get_session_logs():
         return jsonify({"error": f"Failed to fetch session logs: {str(e)}"}), 500
 
 
+# ----------------- COLLABORATION: MEDIA UPLOAD -----------------
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+@app.route('/uploads/<filename>')
+def serve_upload(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file selected for uploading"}), 400
+
+    if file:
+        import uuid
+        from werkzeug.utils import secure_filename
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        filename = f"{uuid.uuid4()}.{ext}" if ext else str(uuid.uuid4())
+        filename = secure_filename(filename)
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(file_path)
+
+        file_url = f"/uploads/{filename}"
+        return jsonify({"url": file_url}), 200
+    
+    return jsonify({"error": "Upload failed"}), 400
+
+
+# ----------------- COLLABORATION: PUBLIC KEYS FOR E2EE -----------------
+@app.route('/users/public_key', methods=['PUT'])
+def update_public_key():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
+    if not data or 'public_key' not in data:
+        return jsonify({"error": "Missing public_key in request"}), 400
+
+    db.users.update_one({"username": user["username"]}, {"$set": {"public_key": data["public_key"]}})
+    return jsonify({"message": "Public key updated successfully!"}), 200
+
+@app.route('/users/<username>/public_key', methods=['GET'])
+def get_user_public_key(username):
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    target = db.users.find_one({"username": username}, {"public_key": 1, "full_name": 1})
+    if not target:
+        return jsonify({"error": "User not found"}), 404
+
+    if 'public_key' not in target:
+        return jsonify({"error": f"User {target.get('full_name')} has not activated secure messaging yet (no public key)"}), 404
+
+    return jsonify({"public_key": target["public_key"]}), 200
+
+
+# ----------------- COLLABORATION: ANNOUNCEMENTS -----------------
+@app.route('/announcements', methods=['GET'])
+def get_announcements():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        announcements = list(db.announcements.find({}).sort("created_at", -1).limit(50))
+        announcements.reverse()
+        return jsonify(serialize(announcements))
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch announcements: {str(e)}"}), 500
+
+@app.route('/announcements', methods=['POST'])
+def add_announcement():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
+    if not data or 'content' not in data:
+        return jsonify({"error": "Missing content in request"}), 400
+
+    content = data.get('content')
+    media_url = data.get('media_url', '')
+    media_type = data.get('media_type', '')
+
+    try:
+        db.announcements.insert_one({
+            "sender": user["username"],
+            "sender_fullname": user["full_name"],
+            "sender_role": user["role"],
+            "content": content,
+            "media_url": media_url,
+            "media_type": media_type,
+            "created_at": datetime.datetime.utcnow()
+        })
+        return jsonify({"message": "Announcement posted successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": f"Failed to post announcement: {str(e)}"}), 500
+
+
+# ----------------- COLLABORATION: SECURE ONE-TO-ONE MESSAGING (E2EE) -----------------
+@app.route('/direct_messages', methods=['GET'])
+def get_direct_messages():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    recipient = request.args.get('recipient')
+    if not recipient:
+        return jsonify({"error": "Missing recipient parameter"}), 400
+
+    try:
+        query = {
+            "$or": [
+                {"sender": user["username"], "recipient": recipient},
+                {"sender": recipient, "recipient": user["username"]}
+            ]
+        }
+        messages = list(db.direct_messages.find(query).sort("created_at", 1))
+        return jsonify(serialize(messages))
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch messages: {str(e)}"}), 500
+
+@app.route('/direct_messages', methods=['POST'])
+def add_direct_message():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
+    if not data or not all(k in data for k in ['recipient', 'ciphertext', 'iv', 'sender_key_enc', 'recipient_key_enc']):
+        return jsonify({"error": "Missing required encrypted payload fields"}), 400
+
+    recipient = data.get('recipient')
+    ciphertext = data.get('ciphertext')
+    iv = data.get('iv')
+    sender_key_enc = data.get('sender_key_enc')
+    recipient_key_enc = data.get('recipient_key_enc')
+
+    target_user = db.users.find_one({"username": recipient})
+    if not target_user:
+        return jsonify({"error": "Recipient not found"}), 404
+
+    try:
+        db.direct_messages.insert_one({
+            "sender": user["username"],
+            "recipient": recipient,
+            "ciphertext": ciphertext,
+            "iv": iv,
+            "sender_key_enc": sender_key_enc,
+            "recipient_key_enc": recipient_key_enc,
+            "created_at": datetime.datetime.utcnow()
+        })
+        return jsonify({"message": "Message sent successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": f"Failed to send message: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
