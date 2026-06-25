@@ -38,6 +38,14 @@ try:
 except Exception as ie:
     print(f"Warning: Failed to ensure database indexes: {ie}")
 
+# Startup migration to ensure all existing users have 'approved: True'
+try:
+    print("Running startup migration to approve existing users...")
+    db.users.update_many({"approved": {"$exists": False}}, {"$set": {"approved": True}})
+    print("Startup migration completed successfully.")
+except Exception as me:
+    print(f"Warning: Startup migration failed: {me}")
+
 # Helper to serialize MongoDB documents (converting ObjectId to string 'id')
 def serialize(doc):
     if doc is None:
@@ -151,12 +159,28 @@ def signup():
             "role": role,
             "email": email,
             "title": title,
+            "approved": False,
             "created_at": datetime.datetime.utcnow()
         })
+        
+        # Notify all Admin users about the new pending registration
+        try:
+            admins = list(db.users.find({"role": "Admin"}))
+            for admin_user in admins:
+                db.notifications.insert_one({
+                    "username": admin_user['username'],
+                    "message": f"New registration pending approval: {full_name} ({role})",
+                    "type": "registration_pending",
+                    "created_at": datetime.datetime.utcnow(),
+                    "read": False
+                })
+        except Exception as ne:
+            print(f"Failed to create admin notification on signup: {ne}")
+            
     except Exception as e:
         return jsonify({"error": f"Signup failed: {str(e)}"}), 500
 
-    return jsonify({"message": "Registration successful!"}), 201
+    return jsonify({"message": "Registration successful! Your account is pending administrator approval."}), 201
 
 
 @app.route('/login', methods=['POST'])
@@ -177,6 +201,10 @@ def login():
 
     if not check_password_hash(user['password_hash'], password):
         return jsonify({"error": "Invalid credentials"}), 401
+
+    # Check if user account is approved
+    if not user.get('approved', False):
+        return jsonify({"error": "Your account is pending administrator approval. Please contact an admin."}), 403
 
     # Store user identity details inside the session
     session['user_id'] = str(user['_id'])
@@ -921,6 +949,38 @@ def update_user_role(user_id):
         
     db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"role": new_role}})
     return jsonify({"message": f"User {target_user['full_name']} role updated to {new_role}!"})
+
+
+# ----------------- USER MANAGEMENT: APPROVE USER (Admin Only) -----------------
+@app.route('/users/<user_id>/approve', methods=['PUT'])
+def approve_user(user_id):
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized: Only Admins can approve users"}), 401
+        
+    try:
+        target_user = db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return jsonify({"error": "Invalid user ID format"}), 400
+        
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+        
+    db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"approved": True}})
+    
+    # Create notification for target user
+    try:
+        db.notifications.insert_one({
+            "username": target_user['username'],
+            "message": "Your account has been approved by the Admin! You can now log in.",
+            "type": "account_approved",
+            "created_at": datetime.datetime.utcnow(),
+            "read": False
+        })
+    except Exception as ne:
+        print(f"Failed to create approval notification: {ne}")
+        
+    return jsonify({"message": f"User {target_user['full_name']} has been approved successfully!"})
 
 
 # ----------------- SESSION LOGS API ENDPOINT (Admin & Manager Only) -----------------

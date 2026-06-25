@@ -34,7 +34,8 @@ def seed():
                 'full_name': full_name,
                 'role': role,
                 'email': email,
-                'title': title
+                'title': title,
+                'approved': True
             })
 
     client.close()

@@ -1104,6 +1104,7 @@
                                     <th>Username / Email</th>
                                     <th>Designation</th>
                                     <th>Role</th>
+                                    <th>Approval</th>
                                     <th>Activity Count</th>
                                     <th>Status</th>
                                     <th style="width: 120px; text-align: center;">Actions</th>
@@ -2133,7 +2134,7 @@
 
                 const tr = document.createElement('tr');
                 
-                // Set actions (Delete button or label)
+                // Set actions (Approve, Delete buttons)
                 let actionHtml = '';
                 if (u.username === currentUser.username) {
                     actionHtml = `<span style="color: var(--text-muted); font-size: 13px; font-style: italic;">(You)</span>`;
@@ -2147,12 +2148,26 @@
                         }
                     }
 
-                    if (canDelete) {
-                        actionHtml = `
-                            <button class="btn btn-danger btn-sm" onclick="removeUser('${u.id}', '${escapeHTML(u.full_name)}')">
-                                <i class="fa-solid fa-trash-can"></i> Remove
+                    let approveBtn = '';
+                    if (currentUser.role === 'Admin' && !u.approved) {
+                        approveBtn = `
+                            <button class="btn btn-success btn-sm" onclick="approveUser('${u.id}', '${escapeHTML(u.full_name)}')">
+                                <i class="fa-solid fa-check"></i> Approve
                             </button>
                         `;
+                    }
+
+                    if (canDelete) {
+                        actionHtml = `
+                            <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+                                ${approveBtn}
+                                <button class="btn btn-danger btn-sm" onclick="removeUser('${u.id}', '${escapeHTML(u.full_name)}')">
+                                    <i class="fa-solid fa-trash-can"></i> Remove
+                                </button>
+                            </div>
+                        `;
+                    } else if (approveBtn) {
+                        actionHtml = approveBtn;
                     } else {
                         actionHtml = `<span style="color: var(--text-muted); font-size: 13px;">No Access</span>`;
                     }
@@ -2176,6 +2191,14 @@
                     else if (u.role === 'Employee') badgeClass = 'badge-primary';
                     else if (u.role === 'Intern') badgeClass = 'badge-success';
                     roleHtml = `<span class="badge ${badgeClass}">${u.role}</span>`;
+                }
+
+                // Render approval badge
+                let approvalHtml = '';
+                if (u.approved) {
+                    approvalHtml = `<span class="badge badge-success"><i class="fa-solid fa-user-check"></i> Approved</span>`;
+                } else {
+                    approvalHtml = `<span class="badge badge-warning"><i class="fa-solid fa-user-clock"></i> Pending</span>`;
                 }
 
                 // Calculate activity metrics
@@ -2213,6 +2236,7 @@
                     </td>
                     <td style="font-size:13px; color:var(--text-muted);">${escapeHTML(u.title || '-')}</td>
                     <td>${roleHtml}</td>
+                    <td>${approvalHtml}</td>
                     <td>${activityHtml}</td>
                     <td>${statusBadgeHtml}</td>
                     <td style="text-align: center;">${actionHtml}</td>
@@ -3625,6 +3649,30 @@
                 }
             } catch (err) {
                 showToast("Failed to remove user", "error");
+            }
+        }
+
+        // Approve User Handler (Admin only)
+        async function approveUser(userId, fullName) {
+            if (!confirm(`Are you sure you want to approve user ${fullName}? They will be allowed to log in to the portal.`)) return;
+            try {
+                const res = await apiFetch(`/users/${userId}/approve`, {
+                    method: 'PUT'
+                });
+                if (res.ok) {
+                    showToast(`User ${fullName} approved successfully!`);
+                    
+                    // Re-populate dropdowns and reload rosters
+                    await populateDropdowns(); 
+                    
+                    // Refresh data in other tabs
+                    fetchData();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Failed to approve user", "error");
+                }
+            } catch (err) {
+                showToast("Failed to approve user", "error");
             }
         }
 
