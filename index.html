@@ -2671,6 +2671,9 @@
         function switchGuestViewRole(newRole) {
             currentGuestViewRole = newRole;
             
+            // Reconfigure sidebar layout, theme, and headers for the simulated role
+            setupPortalForRole();
+            
             // Check if current tab is still valid for this simulated role
             const activeTabItem = document.querySelector('.nav-item.active');
             let tabId = activeTabItem ? activeTabItem.dataset.tab : 'dashboard';
