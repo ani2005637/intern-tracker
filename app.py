@@ -104,7 +104,7 @@ def get_subordinate_usernames(user):
     role_weights = {"Intern": 1, "Employee": 2, "Manager": 3, "Admin": 4}
     user_weight = role_weights.get(user['role'], 0)
     
-    if user['role'] == 'Admin':
+    if user['role'] in ['Admin', 'Guest']:
         return None
         
     # Find all roles with a weight strictly lower than user's weight
@@ -117,6 +117,17 @@ def get_subordinate_usernames(user):
     # Always include the user's own username so they can see their own data
     sub_usernames.append(user['username'])
     return sub_usernames
+
+
+@app.before_request
+def restrict_guest_writes():
+    if request.method in ['POST', 'PUT', 'DELETE']:
+        if request.path in ['/login', '/logout', '/signup']:
+            return None
+        user = get_logged_in_user()
+        if user and user.get('role') == 'Guest':
+            return jsonify({"error": "Forbidden: Guest account is read-only"}), 403
+    return None
 
 
 # ----------------- FRONTEND ROUTE -----------------
@@ -206,7 +217,7 @@ def create_user_by_supervisor():
     if not username or not password or not full_name or not role or not email or not title:
         return jsonify({"error": "All fields are required"}), 400
 
-    if role not in ['Admin', 'Manager', 'Employee', 'Intern']:
+    if role not in ['Admin', 'Manager', 'Employee', 'Intern', 'Guest']:
         return jsonify({"error": "Invalid role specified"}), 400
 
     # Hierarchical role check
@@ -1147,13 +1158,13 @@ def get_session_logs():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    if user['role'] not in ['Admin', 'Manager']:
+    if user['role'] not in ['Admin', 'Manager', 'Guest']:
         return jsonify({"error": "Forbidden: Access restricted"}), 403
 
     try:
         # Enforce hierarchical access control:
         # Admin can view all login/logout session logs
-        if user['role'] == 'Admin':
+        if user['role'] in ['Admin', 'Guest']:
             logs = list(db.session_logs.find({}).sort("login_time", -1))
         # Manager can view Employee and Intern logs, plus their own
         else:

@@ -1518,6 +1518,24 @@
 
         <!-- Main Content Area -->
         <main class="main-content">
+            <!-- Guest View Switcher Banner -->
+            <div id="guest-view-mode-container" style="display: none; background: rgba(99, 102, 241, 0.1); border: 1px solid var(--primary); padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-eye" style="color: #fbbf24; font-size: 16px;"></i>
+                    <span style="font-size: 13px; font-weight: 600; color: #fbbf24;">Guest Viewing Sandbox Mode:</span>
+                    <span id="guest-mode-badge" class="badge badge-danger" style="font-size: 10px; text-transform: uppercase;">Admin View</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="guest-view-role-select" style="font-size: 12px; color: var(--text-muted);">Switch Simulated Dashboard:</label>
+                    <select id="guest-view-role-select" onchange="switchGuestViewRole(this.value)" style="padding: 6px 12px; font-size: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); outline: none;">
+                        <option value="Admin">Admin Portal View</option>
+                        <option value="Manager">Manager Portal View</option>
+                        <option value="Employee">Employee Portal View</option>
+                        <option value="Intern">Intern Portal View</option>
+                    </select>
+                </div>
+            </div>
+
             <header class="top-header">
                 <div>
                     <h2 id="tab-title">Internship Dashboard</h2>
@@ -1857,6 +1875,7 @@
                             <button id="btn-view-employees" class="btn btn-primary btn-sm" onclick="setActivityView('employees')">Employees Work Logs</button>
                             <button id="btn-view-interns" class="btn btn-secondary btn-sm" onclick="setActivityView('interns')">Interns Work Logs</button>
                             <button id="btn-view-sessions" class="btn btn-secondary btn-sm" onclick="setActivityView('sessions')">Session Attendance Logs</button>
+                            <button class="btn btn-secondary btn-sm" onclick="exportActivityLogsToExcel()" style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2);"><i class="fa-solid fa-file-excel"></i> Export to Excel</button>
                         </div>
                     </div>
                     
@@ -2520,6 +2539,14 @@
         // Cache object holding current state
         let currentUser = null;
         let activeUsers = []; // Stores list of users dynamically fetched
+        let currentGuestViewRole = 'Admin';
+
+        function getEffectiveUserRole() {
+            if (currentUser && currentUser.role === 'Guest') {
+                return currentGuestViewRole || 'Admin';
+            }
+            return currentUser ? currentUser.role : 'Intern';
+        }
 
         function isTestUser(username, fullName) {
             const uname = (username || '').toLowerCase().trim();
@@ -2589,18 +2616,19 @@
             document.getElementById('app-container').style.display = 'flex';
         }
 
-        // UI Tabs Navigator
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
+        // UI Tabs Navigator and Tab Switching Helper
+        function switchTab(tabId) {
+            const item = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+            if (item) {
                 document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 
                 item.classList.add('active');
-                const tabId = item.dataset.tab;
                 document.getElementById(tabId).classList.add('active');
 
+                const role = getEffectiveUserRole();
                 const titles = {
-                    'dashboard': currentUser.role === 'Admin' ? 'Admin Control Panel' : (currentUser.role === 'Manager' ? 'Manager Overview' : (currentUser.role === 'Employee' ? 'Employee Workspace' : 'Internship Dashboard')),
+                    'dashboard': role === 'Admin' ? 'Admin Control Panel' : (role === 'Manager' ? 'Manager Overview' : (role === 'Employee' ? 'Employee Workspace' : 'Internship Dashboard')),
                     'daily-logs': 'Daily Logs Tracker',
                     'activity-logs': 'Activity Updates Logs',
                     'tasks': 'Task & Project Tracker',
@@ -2610,7 +2638,7 @@
                     'direct-messages': 'Secure Private Messaging'
                 };
                 const subtitles = {
-                    'dashboard': currentUser.role === 'Admin' ? 'Complete system overview and login tracking' : (currentUser.role === 'Manager' ? 'Subordinate tracking & operations statistics' : (currentUser.role === 'Employee' ? 'Personal progress & tasks tracking' : 'Dynamic Summary Analytics')),
+                    'dashboard': role === 'Admin' ? 'Complete system overview and login tracking' : (role === 'Manager' ? 'Subordinate tracking & operations statistics' : (role === 'Employee' ? 'Personal progress & tasks tracking' : 'Dynamic Summary Analytics')),
                     'daily-logs': 'Daily check-in, deliverables, and progress logs',
                     'activity-logs': 'Review daily check-in, deliverables, and progress logs of Employees and Interns',
                     'tasks': 'Manage and update project deliverables',
@@ -2629,8 +2657,199 @@
                 } else {
                     fetchData(); // Only dynamically fetch latest workspace data for non-messaging tabs
                 }
+            }
+        }
+
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const tabId = item.dataset.tab;
+                switchTab(tabId);
             });
         });
+
+        // Guest View Switcher
+        function switchGuestViewRole(newRole) {
+            currentGuestViewRole = newRole;
+            
+            // Check if current tab is still valid for this simulated role
+            const activeTabItem = document.querySelector('.nav-item.active');
+            let tabId = activeTabItem ? activeTabItem.dataset.tab : 'dashboard';
+            
+            // Intern/Employee don't have access to activity-logs and feedback
+            if (newRole === 'Intern' || newRole === 'Employee') {
+                if (tabId === 'activity-logs' || tabId === 'feedback') {
+                    tabId = 'dashboard';
+                }
+            } else {
+                // Admin/Manager don't have daily-logs or skills tabs
+                if (tabId === 'daily-logs' || tabId === 'skills') {
+                    tabId = 'dashboard';
+                }
+            }
+            
+            // Switch to the target tab
+            switchTab(tabId);
+        }
+
+        // Excel Export Function
+        function exportActivityLogsToExcel() {
+            // Determine active view
+            const view = currentActivityView; // 'employees', 'interns', or 'sessions'
+            const activityFilter = document.getElementById('activity-user-filter');
+            const selectedUser = activityFilter ? activityFilter.value : 'ALL';
+
+            let csvContent = "";
+            let filename = "";
+
+            function escapeCsvValue(val) {
+                if (val === null || val === undefined) return "";
+                let str = String(val);
+                // Escape double quotes
+                str = str.replace(/"/g, '""');
+                // Quote if it contains comma, double-quote, or newline
+                if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+                    str = `"${str}"`;
+                }
+                return str;
+            }
+
+            if (view === 'sessions') {
+                // EXPORT SESSION LOGS
+                let rawLogs = (state.sessionLogs || []).filter(log => log.role === 'Employee' || log.role === 'Intern');
+                rawLogs = rawLogs.filter(log => !isTestUser(log.username, log.full_name));
+                if (selectedUser !== 'ALL') {
+                    rawLogs = rawLogs.filter(log => (log.username || '').toLowerCase().trim() === selectedUser.toLowerCase().trim());
+                }
+
+                // Group by username and local date (same logic as renderSessionAttendanceLogs)
+                const groups = {};
+                rawLogs.forEach(log => {
+                    const loginDate = new Date(log.login_time);
+                    const localDateStr = loginDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+                    const key = `${log.username}_${localDateStr}`;
+                    if (!groups[key]) {
+                        groups[key] = {
+                            username: log.username,
+                            full_name: log.full_name,
+                            role: log.role,
+                            localDateStr: localDateStr,
+                            sessions: []
+                        };
+                    }
+                    groups[key].sessions.push(log);
+                });
+
+                const aggregatedLogs = Object.values(groups);
+                aggregatedLogs.forEach(group => {
+                    group.sessions.sort((a, b) => new Date(a.login_time) - new Date(b.login_time));
+                    group.earliestLoginTime = new Date(group.sessions[0].login_time);
+                });
+                aggregatedLogs.sort((a, b) => b.earliestLoginTime - a.earliestLoginTime);
+
+                const headers = ["User", "Role", "Login Date", "Check-In Time", "Check-Out Time", "Active Duration", "Status"];
+                csvContent += headers.map(escapeCsvValue).join(",") + "\n";
+
+                aggregatedLogs.forEach(group => {
+                    const firstSession = group.sessions[0];
+                    const lastSession = group.sessions[group.sessions.length - 1];
+                    const loginTimeObj = new Date(firstSession.login_time);
+                    const checkInTimeStr = loginTimeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    let checkOutTimeStr = '-';
+                    let status = 'Completed';
+                    if (!lastSession.logout_time) {
+                        checkOutTimeStr = '-';
+                        status = 'Active';
+                    } else {
+                        const logoutTimeObj = new Date(lastSession.logout_time);
+                        checkOutTimeStr = logoutTimeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    }
+
+                    let totalDurationMs = 0;
+                    group.sessions.forEach(s => {
+                        const loginTime = new Date(s.login_time);
+                        if (s.logout_time) {
+                            totalDurationMs += (new Date(s.logout_time) - loginTime);
+                        } else {
+                            totalDurationMs += (new Date() - loginTime);
+                        }
+                    });
+
+                    const diffMins = Math.round(totalDurationMs / 1000 / 60);
+                    const hours = Math.floor(diffMins / 60);
+                    const mins = diffMins % 60;
+                    const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+                    const row = [
+                        `${group.full_name} (@${group.username})`,
+                        group.role,
+                        group.localDateStr,
+                        checkInTimeStr,
+                        checkOutTimeStr,
+                        durationStr,
+                        status
+                    ];
+                    csvContent += row.map(escapeCsvValue).join(",") + "\n";
+                });
+
+                filename = `Session_Attendance_Logs_${selectedUser}_${new Date().toISOString().slice(0, 10)}.csv`;
+            } else {
+                // EXPORT WORK LOGS
+                let logsToRender = state.logs.filter(log => {
+                    const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
+                    const userRole = userObj ? userObj.role : 'Intern';
+                    if (selectedUser !== 'ALL' && (log.intern_name || '').toLowerCase().trim() !== selectedUser.toLowerCase().trim()) {
+                        return false;
+                    }
+                    if (view === 'employees') {
+                        return userRole === 'Employee';
+                    } else {
+                        return userRole === 'Intern';
+                    }
+                });
+
+                const headers = ["User", "Date", "Check-In", "Check-Out", "Hours Worked", "Tasks Completed", "Deliverable Completed", "Blockers", "Skills Used", "Mood", "Additional Notes"];
+                csvContent += headers.map(escapeCsvValue).join(",") + "\n";
+
+                logsToRender.forEach(log => {
+                    const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
+                    const displayName = userObj ? `${userObj.full_name} (@${userObj.username})` : log.intern_name;
+                    const moodVal = parseInt(log.daily_mood || 5);
+                    const moodStr = moodVal === 5 ? '5 - Excellent' : moodVal === 4 ? '4 - Good' : moodVal === 3 ? '3 - Neutral' : moodVal === 2 ? '2 - Low' : '1 - Struggling';
+
+                    const row = [
+                        displayName,
+                        log.date_logged,
+                        log.check_in || '-',
+                        log.check_out || '-',
+                        `${log.hours_worked} hrs`,
+                        log.tasks_completed,
+                        log.deliverable_completed || 'No',
+                        log.blockers || 'None',
+                        log.skills_used || 'None',
+                        moodStr,
+                        log.additional_notes || ''
+                    ];
+                    csvContent += row.map(escapeCsvValue).join(",") + "\n";
+                });
+
+                const viewLabel = view === 'employees' ? 'Employees' : 'Interns';
+                filename = `${viewLabel}_Work_Logs_${selectedUser}_${new Date().toISOString().slice(0, 10)}.csv`;
+            }
+
+            // Trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
 
         // Initialize Forms Dates
         const d = new Date();
@@ -2706,6 +2925,57 @@
         function setupPortalForRole() {
             hideAuthOverlay();
             
+            const role = getEffectiveUserRole();
+
+            // Handle Guest View Mode Container visibility and badge
+            const guestContainer = document.getElementById('guest-view-mode-container');
+            if (guestContainer) {
+                if (currentUser.role === 'Guest') {
+                    guestContainer.style.display = 'flex';
+                    const badge = document.getElementById('guest-mode-badge');
+                    if (badge) {
+                        badge.innerText = `${role} View`;
+                        badge.className = 'badge';
+                        if (role === 'Admin') badge.classList.add('badge-danger');
+                        else if (role === 'Manager') badge.classList.add('badge-warning');
+                        else if (role === 'Employee') badge.classList.add('badge-primary');
+                        else badge.classList.add('badge-success');
+                    }
+                } else {
+                    guestContainer.style.display = 'none';
+                }
+            }
+
+            // Hide/show openCreateMemberModal button for Guests
+            const createMemberBtn = document.querySelector('button[onclick="openCreateMemberModal()"]');
+            if (createMemberBtn) {
+                createMemberBtn.style.display = (currentUser.role === 'Guest') ? 'none' : 'flex';
+            }
+
+            // Disable all inputs/buttons in active forms if user is a Guest
+            const formIds = ['logForm', 'skillForm', 'feedbackForm', 'announcementForm', 'taskForm', 'dmForm', 'createMemberForm'];
+            formIds.forEach(id => {
+                const form = document.getElementById(id);
+                if (form) {
+                    const elements = form.querySelectorAll('input, select, textarea, button');
+                    elements.forEach(el => {
+                        if (currentUser.role === 'Guest') {
+                            el.disabled = true;
+                            if (el.tagName === 'BUTTON') {
+                                el.style.opacity = '0.5';
+                                el.style.cursor = 'not-allowed';
+                            }
+                        } else {
+                            el.disabled = false;
+                            if (el.tagName === 'BUTTON') {
+                                el.style.opacity = '';
+                                el.style.cursor = '';
+                            }
+                        }
+                    });
+                }
+            });
+
             // Apply role-based theme class to body and update branding
             document.body.className = ''; // Reset previous themes
             
@@ -2715,15 +2985,15 @@
             let brandTitle = "Sanna Innovations Portal";
             let brandSubtitle = "Internship System";
 
-            if (currentUser.role === 'Admin') {
+            if (role === 'Admin') {
                 document.body.classList.add('theme-admin');
                 brandTitle = "Sanna Innovations Admin";
                 brandSubtitle = "System Console";
-            } else if (currentUser.role === 'Manager') {
+            } else if (role === 'Manager') {
                 document.body.classList.add('theme-manager');
                 brandTitle = "Sanna Innovations Manager";
                 brandSubtitle = "Team Management";
-            } else if (currentUser.role === 'Employee') {
+            } else if (role === 'Employee') {
                 document.body.classList.add('theme-employee');
                 brandTitle = "Sanna Innovations Employee";
                 brandSubtitle = "Associate Portal";
@@ -2736,10 +3006,14 @@
 
             // Set user profile footer info
             document.getElementById('user-display-name').innerText = currentUser.full_name;
-            document.getElementById('user-display-role').innerText = `${currentUser.role} (${currentUser.title || ''})`;
+            if (currentUser.role === 'Guest') {
+                document.getElementById('user-display-role').innerText = `Guest View (${role} Mode)`;
+            } else {
+                document.getElementById('user-display-role').innerText = `${currentUser.role} (${currentUser.title || ''})`;
+            }
 
             // Enforce visibility of navigation options
-            if (currentUser.role === 'Intern' || currentUser.role === 'Employee') {
+            if (role === 'Intern' || role === 'Employee') {
                 document.getElementById('nav-logs').style.display = 'block';
                 document.getElementById('nav-skills').style.display = 'block';
                 document.getElementById('nav-tasks').style.display = 'block';
@@ -2787,7 +3061,7 @@
                 document.getElementById('team-roster-panel').style.display = 'block';
                 
                 // Show personal workspace toggle for Managers only. Admins track the entire team and do not need a personal workspace view.
-                if (currentUser.role === 'Admin') {
+                if (role === 'Admin') {
                     document.getElementById('task-view-toggle-container').style.display = 'none';
                     setTaskView('team');
                 } else {
@@ -2799,7 +3073,7 @@
             // Customize create-task panel titles/buttons based on role
             const taskFormTitle = document.querySelector('#task-assign-panel .panel-title span');
             const taskSubmitBtn = document.querySelector('#task-assign-panel .btn-submit');
-            if (currentUser.role === 'Intern' || currentUser.role === 'Employee') {
+            if (role === 'Intern' || role === 'Employee') {
                 if (taskFormTitle) taskFormTitle.innerText = "Create Task";
                 if (taskSubmitBtn) taskSubmitBtn.innerHTML = '<i class="fa-solid fa-circle-plus"></i> Create Task';
             } else {
@@ -2811,7 +3085,7 @@
             const activeTabItem = document.querySelector('.nav-item.active');
             const tabId = activeTabItem ? activeTabItem.dataset.tab : 'dashboard';
             const titles = {
-                'dashboard': currentUser.role === 'Admin' ? 'Admin Control Panel' : (currentUser.role === 'Manager' ? 'Manager Overview' : (currentUser.role === 'Employee' ? 'Employee Workspace' : 'Internship Dashboard')),
+                'dashboard': role === 'Admin' ? 'Admin Control Panel' : (role === 'Manager' ? 'Manager Overview' : (role === 'Employee' ? 'Employee Workspace' : 'Internship Dashboard')),
                 'daily-logs': 'Daily Logs Tracker',
                 'activity-logs': 'Activity Updates Logs',
                 'tasks': 'Task & Project Tracker',
@@ -2819,7 +3093,7 @@
                 'feedback': 'Mentor & Supervisor Feedback'
             };
             const subtitles = {
-                'dashboard': currentUser.role === 'Admin' ? 'Complete system overview and login tracking' : (currentUser.role === 'Manager' ? 'Subordinate tracking & operations statistics' : (currentUser.role === 'Employee' ? 'Personal progress & tasks tracking' : 'Dynamic Summary Analytics')),
+                'dashboard': role === 'Admin' ? 'Complete system overview and login tracking' : (role === 'Manager' ? 'Subordinate tracking & operations statistics' : (role === 'Employee' ? 'Personal progress & tasks tracking' : 'Dynamic Summary Analytics')),
                 'daily-logs': 'Daily check-in, deliverables, and progress logs',
                 'activity-logs': 'Review daily check-in, deliverables, and progress logs of Employees and Interns',
                 'tasks': 'Manage and update project deliverables',
@@ -2870,15 +3144,17 @@
                 // 4. Feedback Target selector
                 fbSelect.innerHTML = '<option value="">Choose target user...</option>';
 
+                const role = getEffectiveUserRole();
+
                 activeUsers.forEach(u => {
                     const optionHtml = `<option value="${u.username}">${escapeHTML(u.full_name)} (${u.role})</option>`;
                     
                     // Dashboard filter population based on user role
-                    if (currentUser.role === 'Admin') {
+                    if (role === 'Admin') {
                         if (u.role === 'Manager' || u.role === 'Employee' || u.role === 'Intern') {
                             dashFilter.innerHTML += optionHtml;
                         }
-                    } else if (currentUser.role === 'Manager') {
+                    } else if (role === 'Manager') {
                         if (u.role === 'Employee' || u.role === 'Intern') {
                             dashFilter.innerHTML += optionHtml;
                         }
@@ -2886,7 +3162,7 @@
 
                     // Activity filter population based on user role (Employee and Intern logs are visible to Admin/Manager)
                     if (activityFilter) {
-                        if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
+                        if (role === 'Admin' || role === 'Manager') {
                             if (u.role === 'Employee' || u.role === 'Intern') {
                                 activityFilter.innerHTML += optionHtml;
                             }
@@ -2894,19 +3170,19 @@
                     }
 
                     // Task assignment & Feedback target dropdown population based on user role
-                    if (currentUser.role === 'Admin') {
+                    if (role === 'Admin') {
                         // Admin can assign to Manager, Employee, Intern
                         if (u.role === 'Manager' || u.role === 'Employee' || u.role === 'Intern') {
                             taskSelect.innerHTML += optionHtml;
                             fbSelect.innerHTML += optionHtml;
                         }
-                    } else if (currentUser.role === 'Manager') {
+                    } else if (role === 'Manager') {
                         // Manager can assign to Employee, Intern
                         if (u.role === 'Employee' || u.role === 'Intern') {
                             taskSelect.innerHTML += optionHtml;
                             fbSelect.innerHTML += optionHtml;
                         }
-                    } else if (currentUser.role === 'Employee') {
+                    } else if (role === 'Employee') {
                         // Employee can assign to Intern only or themselves
                         if (u.role === 'Intern' || u.username === currentUser.username) {
                             taskSelect.innerHTML += optionHtml;
@@ -2914,7 +3190,7 @@
                         if (u.role === 'Intern') {
                             fbSelect.innerHTML += optionHtml;
                         }
-                    } else if (currentUser.role === 'Intern') {
+                    } else if (role === 'Intern') {
                         // Intern can only assign to themselves
                         if (u.username === currentUser.username) {
                             taskSelect.innerHTML += optionHtml;
@@ -2957,9 +3233,9 @@
                     }
                 }
                 if (taskSelect) {
-                    if (currentUser.role === 'Intern') {
+                    if (role === 'Intern') {
                         taskSelect.value = currentUser.username;
-                    } else if (currentUser.role === 'Employee' && !previousTaskVal) {
+                    } else if (role === 'Employee' && !previousTaskVal) {
                         taskSelect.value = currentUser.username;
                     } else {
                         taskSelect.value = previousTaskVal;
@@ -2980,12 +3256,14 @@
             if (!tbody) return;
             tbody.innerHTML = '';
 
+            const role = getEffectiveUserRole();
+
             activeUsers.forEach(u => {
                 // Determine visibility in roster: Admin sees all users. Manager sees Employees and Interns.
                 let visible = false;
-                if (currentUser.role === 'Admin') {
+                if (role === 'Admin') {
                     visible = true;
-                } else if (currentUser.role === 'Manager') {
+                } else if (role === 'Manager') {
                     if (u.role === 'Employee' || u.role === 'Intern') {
                         visible = true;
                     }
@@ -2997,20 +3275,22 @@
                 
                 // Set actions (Approve, Restrict, Delete buttons)
                 let actionHtml = '';
-                if (u.username === currentUser.username) {
+                if (currentUser.role === 'Guest') {
+                    actionHtml = `<span style="color: var(--text-muted); font-size: 12px; font-style: italic;">Read-Only</span>`;
+                } else if (u.username === currentUser.username) {
                     actionHtml = `<span style="color: var(--text-muted); font-size: 13px; font-style: italic;">(You)</span>`;
                 } else {
                     let canDelete = false;
-                    if (currentUser.role === 'Admin') {
+                    if (role === 'Admin') {
                         canDelete = true; // Admin can delete any other user
-                    } else if (currentUser.role === 'Manager') {
+                    } else if (role === 'Manager') {
                         if (u.role === 'Employee' || u.role === 'Intern') {
                             canDelete = true; // Manager can delete Employee and Intern
                         }
                     }
 
                     let approveBtn = '';
-                    if (currentUser.role === 'Admin' && !u.approved) {
+                    if (role === 'Admin' && !u.approved) {
                         approveBtn = `
                             <button class="btn btn-success btn-sm" onclick="approveUser('${u.id}', '${escapeHTML(u.full_name)}')">
                                 <i class="fa-solid fa-check"></i> Approve
@@ -3021,9 +3301,9 @@
                     let restrictBtn = '';
                     if (u.approved) {
                         let canRestrict = false;
-                        if (currentUser.role === 'Admin') {
+                        if (role === 'Admin') {
                             canRestrict = true;
-                        } else if (currentUser.role === 'Manager') {
+                        } else if (role === 'Manager') {
                             if (u.role === 'Employee' || u.role === 'Intern') {
                                 canRestrict = true;
                             }
@@ -3070,9 +3350,10 @@
 
                 // Render role badges or role select dropdown (Admin only, excluding the original main admin 'admin')
                 let roleHtml = '';
-                if (currentUser.role === 'Admin' && u.username !== 'admin') {
+                if (role === 'Admin' && u.username !== 'admin') {
+                    const disabledAttr = currentUser.role === 'Guest' ? 'disabled' : '';
                     roleHtml = `
-                        <select onchange="updateUserRole('${u.id}', this.value)" style="padding: 6px 10px; font-size: 13px; border-radius: 8px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--card-border); cursor: pointer; font-weight: 500; outline: none; width: auto;">
+                        <select ${disabledAttr} onchange="updateUserRole('${u.id}', this.value)" style="padding: 6px 10px; font-size: 13px; border-radius: 8px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--card-border); cursor: pointer; font-weight: 500; outline: none; width: auto;">
                             <option value="Intern" ${u.role === 'Intern' ? 'selected' : ''}>Intern</option>
                             <option value="Employee" ${u.role === 'Employee' ? 'selected' : ''}>Employee</option>
                             <option value="Manager" ${u.role === 'Manager' ? 'selected' : ''}>Manager</option>
@@ -3170,7 +3451,7 @@
             try {
                 // Only fetch session logs for Admin and Manager roles
                 let sessionLogsPromise = Promise.resolve([]);
-                if (currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Manager')) {
+                if (currentUser && (getEffectiveUserRole() === 'Admin' || getEffectiveUserRole() === 'Manager')) {
                     sessionLogsPromise = apiFetch('/session_logs').then(r => r.json());
                 }
 
@@ -3222,12 +3503,13 @@
 
         // Render Dashboard KPIs & Tables
         function renderDashboard() {
+            const role = getEffectiveUserRole();
             let filteredLogs = [...state.logs];
             let filteredTasks = [...state.tasks];
             let filteredSkills = [...state.skills];
 
             // If Admin/Manager is logged in, they can filter the stats by a selected user
-            if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
+            if (role === 'Admin' || role === 'Manager') {
                 const userVal = document.getElementById('dash-user-filter').value;
                 if (userVal !== 'ALL') {
                     filteredLogs = filteredLogs.filter(l => l.intern_name && l.intern_name.toLowerCase().trim() === userVal.toLowerCase().trim());
@@ -3349,7 +3631,7 @@
             const summaryTbody = document.getElementById('dash-summary-table');
 
             if (summaryTitle && summaryThead && summaryTbody) {
-                if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
+                if (role === 'Admin' || role === 'Manager') {
                     summaryTitle.innerHTML = `<i class="fa-solid fa-users"></i> <span>Team Work Hours & Tasks Summary</span>`;
                     summaryThead.innerHTML = `
                         <tr>
@@ -3368,9 +3650,9 @@
                     // Manager sees Employee, Intern (only approved users)
                     const subordinateUsers = activeUsers.filter(u => {
                         if (!u.approved) return false;
-                        if (currentUser.role === 'Admin') {
+                        if (role === 'Admin') {
                             return u.role === 'Manager' || u.role === 'Employee' || u.role === 'Intern';
-                        } else if (currentUser.role === 'Manager') {
+                        } else if (role === 'Manager') {
                             return u.role === 'Employee' || u.role === 'Intern';
                         }
                         return false;
@@ -3490,7 +3772,7 @@
                 const displayName = userObj ? userObj.full_name : log.intern_name;
 
                 // Interns/Employees can edit/delete their own logs. Admins/Managers can edit/delete any log.
-                const canEditDelete = currentUser.role === 'Admin' || currentUser.role === 'Manager' || (log.intern_name && log.intern_name.toLowerCase().trim() === currentUser.username.toLowerCase().trim());
+                const canEditDelete = currentUser.role !== 'Guest' && (getEffectiveUserRole() === 'Admin' || getEffectiveUserRole() === 'Manager' || (log.intern_name && log.intern_name.toLowerCase().trim() === currentUser.username.toLowerCase().trim()));
                 let actionButtons = '';
                 if (canEditDelete) {
                     actionButtons = `
@@ -3733,7 +4015,7 @@
                 const displayName = userObj ? userObj.full_name : log.intern_name;
 
                 // Admin/Managers can edit/delete any log
-                const canEditDelete = currentUser.role === 'Admin' || currentUser.role === 'Manager';
+                const canEditDelete = currentUser.role !== 'Guest' && (getEffectiveUserRole() === 'Admin' || getEffectiveUserRole() === 'Manager');
                 let actionButtons = '';
                 if (canEditDelete) {
                     actionButtons = `
@@ -3869,9 +4151,11 @@
             const tbody = document.getElementById('tasks-table-body');
             tbody.innerHTML = '';
             
+            const role = getEffectiveUserRole();
+
             // Filter tasks based on role and active workspace view
             let tasksToRender = [...state.tasks];
-            if (currentUser.role === 'Admin' || currentUser.role === 'Manager') {
+            if (role === 'Admin' || role === 'Manager') {
                 if (currentTaskView === 'my') {
                     tasksToRender = tasksToRender.filter(t => t.intern_name && t.intern_name.toLowerCase().trim() === currentUser.username.toLowerCase().trim());
                 } else {
@@ -3884,6 +4168,8 @@
                 return;
             }
 
+            const disabledAttr = currentUser.role === 'Guest' ? 'disabled' : '';
+
             tasksToRender.forEach(t => {
                 const targetUserObj = activeUsers.find(u => u.username.toLowerCase().trim() === (t.intern_name || '').toLowerCase().trim());
                 const targetName = targetUserObj ? targetUserObj.full_name : t.intern_name;
@@ -3895,7 +4181,7 @@
                 const isCompleted = t.status === 'Completed';
                 
                 // Assigner can delete task, or admins/managers.
-                const canDelete = currentUser.role === 'Admin' || currentUser.role === 'Manager' || t.assigned_by === currentUser.username;
+                const canDelete = currentUser.role !== 'Guest' && (role === 'Admin' || role === 'Manager' || t.assigned_by === currentUser.username);
                 const deleteButton = canDelete ? `<button onclick="deleteTask('${t.id}')" class="btn-action delete" title="Delete Task"><i class="fa-solid fa-trash"></i></button>` : '';
 
                 // Construct timeline details
@@ -3928,7 +4214,7 @@
                     <td><span class="badge ${t.priority === 'High' ? 'badge-danger' : (t.priority === 'Low' ? 'badge-primary' : 'badge-warning')}">${t.priority}</span></td>
                     <td>${timelineHtml}</td>
                     <td>
-                        <select onchange="updateTaskStatus('${t.id}', this.value)" style="padding: 6px 10px; font-size:12px; border-radius:6px; width:auto; background:rgba(255,255,255,0.02)">
+                        <select ${disabledAttr} onchange="updateTaskStatus('${t.id}', this.value)" style="padding: 6px 10px; font-size:12px; border-radius:6px; width:auto; background:rgba(255,255,255,0.02)">
                             <option value="Not Started" ${t.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
                             <option value="In Progress" ${t.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
                             <option value="Completed" ${t.status === 'Completed' ? 'selected' : ''}>Completed</option>
@@ -3937,7 +4223,7 @@
                         </select>
                     </td>
                     <td>
-                        <input type="number" value="${t.percent_done || 0}" min="0" max="100" step="10" 
+                        <input ${disabledAttr} type="number" value="${t.percent_done || 0}" min="0" max="100" step="10" 
                                onchange="updateTaskPercent('${t.id}', this.value)" 
                                style="width: 70px; padding: 6px; font-size:12px; border-radius:6px; background:rgba(255,255,255,0.02); text-align:center;">
                     </td>
@@ -4275,7 +4561,7 @@
 
         // Periodically refresh user presence and directories (every 10 seconds for Admins/Managers)
         setInterval(async () => {
-            if (currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Manager')) {
+            if (currentUser && (getEffectiveUserRole() === 'Admin' || getEffectiveUserRole() === 'Manager')) {
                 try {
                     await populateDropdowns(); // Dynamic user status fetch and roster update
                 } catch (err) {
@@ -4645,14 +4931,16 @@
             // Populate roles select dropdown based on creator role
             const roleSelect = document.getElementById('create_member_role');
             roleSelect.innerHTML = '';
-            if (currentUser.role === 'Admin') {
+            const role = getEffectiveUserRole();
+            if (role === 'Admin') {
                 roleSelect.innerHTML = `
                     <option value="Intern">Intern</option>
                     <option value="Employee">Employee</option>
                     <option value="Manager">Manager</option>
                     <option value="Admin">Admin</option>
+                    <option value="Guest">Guest</option>
                 `;
-            } else if (currentUser.role === 'Manager') {
+            } else if (role === 'Manager') {
                 roleSelect.innerHTML = `
                     <option value="Intern">Intern</option>
                     <option value="Employee">Employee</option>
@@ -5036,7 +5324,7 @@
 
         // Initialize E2EE Keys for Logged-In User
         async function initializeE2EE() {
-            if (!currentUser) return;
+            if (!currentUser || currentUser.role === 'Guest') return;
             const privKeyKey = 'e2e_private_key_' + currentUser.username;
             const pubKeyKey = 'e2e_public_key_' + currentUser.username;
             
@@ -5258,7 +5546,7 @@
                     else if (item.sender_role === 'Manager') badgeClass = 'badge-warning';
                     else if (item.sender_role === 'Employee') badgeClass = 'badge-primary';
 
-                    const isAuthorOrSupervisor = item.sender === currentUser.username || currentUser.role === 'Admin' || currentUser.role === 'Manager';
+                    const isAuthorOrSupervisor = currentUser.role !== 'Guest' && (item.sender === currentUser.username || getEffectiveUserRole() === 'Admin' || getEffectiveUserRole() === 'Manager');
                     const deleteBtnHtml = isAuthorOrSupervisor ? `
                         <button class="delete-announcement-btn" onclick="deleteAnnouncement('${item.id}')" title="Delete Announcement" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px 8px; transition:color 0.2s;" onmouseover="this.style.color='#f43f5e'" onmouseout="this.style.color='var(--text-muted)'">
                             <i class="fa-solid fa-trash" style="font-size:12px;"></i>
@@ -5690,7 +5978,7 @@
                         `<i class="fa-solid fa-check-double" title="Seen" style="color:#22c55e; margin-left:4px;"></i>` : 
                         `<i class="fa-solid fa-check" title="Sent" style="color:var(--text-muted); margin-left:4px;"></i>`;
 
-                    const deleteBtn = isSentByMe ? `
+                    const deleteBtn = (isSentByMe && currentUser.role !== 'Guest') ? `
                         <span class="delete-msg-btn" onclick="deleteDirectMessage('${item.id}', event)" title="Delete Message" style="cursor: pointer; color: var(--text-muted); opacity: 0.6; transition: opacity 0.2s; margin-left: 8px;" onmouseover="this.style.opacity='1'; this.style.color='#f43f5e'" onmouseout="this.style.opacity='0.6'; this.style.color='var(--text-muted)'">
                             <i class="fa-solid fa-trash" style="font-size: 10px;"></i>
                         </span>
