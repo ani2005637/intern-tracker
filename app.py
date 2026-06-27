@@ -1520,9 +1520,10 @@ def delete_direct_message(message_id):
 
 # Helper to ensure leave balances are initialized for a user
 def ensure_leave_balances(username):
+    current_year = datetime.datetime.utcnow().year
     # Total allocations: CL=12 days, SL=12 days, hours=96 hours (8 hours/month * 12)
     db.leave_balances.update_one(
-        {"username": username},
+        {"username": username, "year": current_year},
         {"$setOnInsert": {
             "cl_used": 0.0,
             "sl_used": 0.0,
@@ -1537,8 +1538,9 @@ def get_leave_balances():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     
+    current_year = datetime.datetime.utcnow().year
     ensure_leave_balances(user['username'])
-    bal = db.leave_balances.find_one({"username": user['username']})
+    bal = db.leave_balances.find_one({"username": user['username'], "year": current_year})
     
     return jsonify({
         "cl_used": bal.get("cl_used", 0.0),
@@ -1546,7 +1548,8 @@ def get_leave_balances():
         "hours_used": bal.get("hours_used", 0.0),
         "cl_allocation": 12.0,
         "sl_allocation": 12.0,
-        "hours_allocation": 96.0
+        "hours_allocation": 96.0,
+        "year": current_year
     })
 
 @app.route('/leaves/apply', methods=['POST'])
@@ -1554,6 +1557,9 @@ def apply_leave():
     user = get_logged_in_user()
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+
+    if user['role'] not in ['Manager', 'Employee']:
+        return jsonify({"error": "Forbidden: Only Managers and Employees can apply for leaves."}), 403
 
     data = request.json
     if not data:
@@ -1581,7 +1587,8 @@ def apply_leave():
             return jsonify({"error": "Days requested must be greater than 0."}), 400
 
     ensure_leave_balances(user['username'])
-    bal = db.leave_balances.find_one({"username": user['username']})
+    current_year = datetime.datetime.utcnow().year
+    bal = db.leave_balances.find_one({"username": user['username'], "year": current_year})
 
     # Validate balances unless it is Loss of Pay (LOP)
     if leave_type != 'LOP':
@@ -1631,14 +1638,17 @@ def get_leave_requests():
             # Admin sees all leave requests
             requests = list(db.leave_requests.find({}).sort("submitted_at", -1))
         elif user['role'] == 'Manager':
-            # Manager sees subordinate requests + their own requests
-            sub_users = list(db.users.find({"role": {"$in": ["Employee", "Intern"]}}, {"username": 1}))
+            # Manager sees subordinate Employee requests + their own requests
+            sub_users = list(db.users.find({"role": "Employee"}, {"username": 1}))
             sub_usernames = [u['username'] for u in sub_users]
             sub_usernames.append(user['username'])
             requests = list(db.leave_requests.find({"username": {"$in": sub_usernames}}).sort("submitted_at", -1))
-        else:
-            # Employee / Intern sees their own requests
+        elif user['role'] == 'Employee':
+            # Employee sees their own requests
             requests = list(db.leave_requests.find({"username": user['username']}).sort("submitted_at", -1))
+        else:
+            # Interns or other roles see no leave requests
+            requests = []
         
         return jsonify(serialize(requests))
     except Exception as e:
@@ -1696,7 +1706,8 @@ def action_leave_request(request_id):
             update_query = {"$inc": {"hours_used": req['hours_requested']}}
 
         if update_query:
-            db.leave_balances.update_one({"username": target_username}, update_query)
+            current_year = datetime.datetime.utcnow().year
+            db.leave_balances.update_one({"username": target_username, "year": current_year}, update_query)
 
     # Update request status
     db.leave_requests.update_one(
@@ -1734,20 +1745,20 @@ def get_team_leave_balances():
 
     try:
         # Enforce hierarchy rules:
-        # Managers see Employees & Interns
-        # Admins see everyone
+        # Managers see Employees only
+        # Admins see Managers & Employees
         if user['role'] == 'Admin':
-            users_list = list(db.users.find({}, {"username": 1, "full_name": 1, "role": 1, "title": 1}))
+            users_list = list(db.users.find({"role": {"$in": ["Manager", "Employee"]}}, {"username": 1, "full_name": 1, "role": 1, "title": 1}))
         else:
-            users_list = list(db.users.find({"role": {"$in": ["Employee", "Intern"]}}, {"username": 1, "full_name": 1, "role": 1, "title": 1}))
+            users_list = list(db.users.find({"role": "Employee"}, {"username": 1, "full_name": 1, "role": 1, "title": 1}))
 
-        # Filter out test users
-        users_list = [u for u in users_list if not isTestUser(u['username'], u['full_name'])]
+        # No test user filtering is needed
 
+        current_year = datetime.datetime.utcnow().year
         team_balances = []
         for u in users_list:
             ensure_leave_balances(u['username'])
-            bal = db.leave_balances.find_one({"username": u['username']})
+            bal = db.leave_balances.find_one({"username": u['username'], "year": current_year})
             team_balances.append({
                 "username": u['username'],
                 "full_name": u['full_name'],
