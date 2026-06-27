@@ -3226,15 +3226,18 @@
             }
         }
 
-        function calculateHoursFromTime(checkInId, checkOutId, hoursId) {
+        function calculateHoursFromTime(checkInId, checkOutId, hoursId, force = false) {
             const role = getEffectiveUserRole();
-            if (role !== 'Manager') return; // ONLY for managers
+            const hoursInput = document.getElementById(hoursId);
+            if (!hoursInput) return;
+
+            // Only run if force is true, or user is a Manager, or hoursInput is readOnly (which means it's a manager's log)
+            if (!force && role !== 'Manager' && !hoursInput.readOnly) return;
 
             const checkInVal = document.getElementById(checkInId).value;
             const checkOutVal = document.getElementById(checkOutId).value;
-            const hoursInput = document.getElementById(hoursId);
 
-            if (!checkInVal || !checkOutVal || !hoursInput) return;
+            if (!checkInVal || !checkOutVal) return;
 
             const [inH, inM] = checkInVal.split(':').map(Number);
             const [outH, outM] = checkOutVal.split(':').map(Number);
@@ -3486,14 +3489,14 @@
                     logHours.style.background = 'rgba(255, 255, 255, 0.05)';
                     logHours.style.color = 'var(--text-muted)';
                     logHours.style.cursor = 'not-allowed';
-                    logHours.title = 'Calculated automatically from Check-In/Out for Managers';
+                    logHours.title = '';
                 }
                 if (editLogHours) {
                     editLogHours.readOnly = true;
                     editLogHours.style.background = 'rgba(255, 255, 255, 0.05)';
                     editLogHours.style.color = 'var(--text-muted)';
                     editLogHours.style.cursor = 'not-allowed';
-                    editLogHours.title = 'Calculated automatically from Check-In/Out for Managers';
+                    editLogHours.title = '';
                 }
                 // Compute initial values based on current inputs
                 calculateHoursFromTime('log_checkin', 'log_checkout', 'log_hours');
@@ -4692,13 +4695,13 @@
 
             // For Managers: lock hours and auto-calculate from check-in/out
             const editHoursEl = document.getElementById('edit_log_hours');
-            const editRole = getEffectiveUserRole();
-            if (editRole === 'Manager') {
+            const isManagerLog = userObj && userObj.role === 'Manager';
+            if (isManagerLog) {
                 editHoursEl.readOnly = true;
                 editHoursEl.style.background = 'rgba(255, 255, 255, 0.05)';
                 editHoursEl.style.color = 'var(--text-muted)';
                 editHoursEl.style.cursor = 'not-allowed';
-                editHoursEl.title = 'Auto-calculated from Check-In/Out for Managers';
+                editHoursEl.title = '';
                 // Calculate hours from check-in/out
                 calculateHoursFromTime('edit_log_checkin', 'edit_log_checkout', 'edit_log_hours');
             } else {
