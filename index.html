@@ -3038,9 +3038,34 @@
                 document.getElementById('dash-filter-panel').style.display = 'none';
                 document.getElementById('team-roster-panel').style.display = 'none';
                 document.getElementById('task-view-toggle-container').style.display = 'none';
+            } else if (role === 'Manager') {
+                // Manager needs separate workspace for daily logs, but also reviews subordinates
+                document.getElementById('nav-logs').style.display = 'block'; // Show personal logs
+                document.getElementById('nav-skills').style.display = 'none';
+                document.getElementById('nav-tasks').style.display = 'none';
+                document.getElementById('nav-activity-logs').style.display = 'block';
+
+                // Move task assignment panel to Activity Logs page & display it
+                const activityLogsSection = document.getElementById('activity-logs');
+                const assignPanel = document.getElementById('task-assign-panel');
+                if (activityLogsSection && assignPanel) {
+                    activityLogsSection.appendChild(assignPanel);
+                    assignPanel.style.display = 'block';
+                    assignPanel.style.marginTop = '20px';
+                }
+                document.getElementById('tasks-list-panel').style.gridColumn = 'span 1';
+                
+                document.getElementById('feedback-form-panel').style.display = 'block';
+                document.getElementById('feedback-list-panel').style.gridColumn = 'span 1';
+
+                // Show Admin Overview filter panel on Dashboard
+                document.getElementById('dash-filter-panel').style.display = 'block';
+                document.getElementById('team-roster-panel').style.display = 'block';
+                
+                document.getElementById('task-view-toggle-container').style.display = 'flex';
+                setTaskView('team'); // Reset view to team tasks by default
             } else {
-                // Admin or Manager
-                // They don't log personal hours, so hide Daily Tracker and Skills Log navigation tabs
+                // Admin
                 document.getElementById('nav-logs').style.display = 'none';
                 document.getElementById('nav-skills').style.display = 'none';
                 document.getElementById('nav-tasks').style.display = 'none';
@@ -3063,14 +3088,8 @@
                 document.getElementById('dash-filter-panel').style.display = 'block';
                 document.getElementById('team-roster-panel').style.display = 'block';
                 
-                // Show personal workspace toggle for Managers only. Admins track the entire team and do not need a personal workspace view.
-                if (role === 'Admin') {
-                    document.getElementById('task-view-toggle-container').style.display = 'none';
-                    setTaskView('team');
-                } else {
-                    document.getElementById('task-view-toggle-container').style.display = 'flex';
-                    setTaskView('team'); // Reset view to team tasks by default
-                }
+                document.getElementById('task-view-toggle-container').style.display = 'none';
+                setTaskView('team');
             }
 
             // Customize create-task panel titles/buttons based on role
@@ -3766,11 +3785,15 @@
         function renderLogs() {
             const tbody = document.getElementById('logs-table-body');
             tbody.innerHTML = '';
-            if (state.logs.length === 0) {
+            
+            // Only show personal logs for the logged-in user in their Daily Tracker
+            const personalLogs = state.logs.filter(log => (log.intern_name || '').toLowerCase().trim() === currentUser.username.toLowerCase().trim());
+            
+            if (personalLogs.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No activity logs entered.</td></tr>';
                 return;
             }
-            state.logs.forEach(log => {
+            personalLogs.forEach(log => {
                 const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
                 const displayName = userObj ? userObj.full_name : log.intern_name;
 
@@ -3854,8 +3877,18 @@
             const activityFilter = document.getElementById('activity-user-filter');
             const selectedUser = activityFilter ? activityFilter.value : 'ALL';
             
-            // We only show session logs for Employee and Intern roles (hierarchical monitoring)
-            let rawLogs = (state.sessionLogs || []).filter(log => log.role === 'Employee' || log.role === 'Intern');
+            // Enforce hierarchical monitoring for session attendance:
+            // Admin sees Manager, Employee, and Intern logs.
+            // Manager sees Employee and Intern logs (plus their own sessions).
+            const role = getEffectiveUserRole();
+            let rawLogs = (state.sessionLogs || []).filter(log => {
+                if (role === 'Admin') {
+                    return log.role === 'Manager' || log.role === 'Employee' || log.role === 'Intern';
+                } else if (role === 'Manager') {
+                    return log.role === 'Employee' || log.role === 'Intern' || log.username === currentUser.username;
+                }
+                return false;
+            });
             
             // Filter out test IDs / test usernames
             rawLogs = rawLogs.filter(log => !isTestUser(log.username, log.full_name));
@@ -4002,23 +4035,27 @@
                 }
                 
                 if (currentActivityView === 'employees') {
-                    return userRole === 'Employee';
+                    return userRole === 'Employee' || userRole === 'Manager';
                 } else {
                     return userRole === 'Intern';
                 }
             });
 
             if (logsToRender.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding: 20px;">No activity logs found for ${currentActivityView}.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding: 20px;">No activity logs found matching the filter.</td></tr>`;
                 return;
             }
 
             logsToRender.forEach(log => {
                 const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
+                const userRole = userObj ? userObj.role : 'Intern';
                 const displayName = userObj ? userObj.full_name : log.intern_name;
 
-                // Admin/Managers can edit/delete any log
-                const canEditDelete = currentUser.role !== 'Guest' && (getEffectiveUserRole() === 'Admin' || getEffectiveUserRole() === 'Manager');
+                // Admin can edit/delete any log. Managers can edit/delete subordinate logs (Interns/Employees) but NOT other Managers or themselves.
+                const canEditDelete = currentUser.role !== 'Guest' && (
+                    getEffectiveUserRole() === 'Admin' || 
+                    (getEffectiveUserRole() === 'Manager' && userRole !== 'Manager')
+                );
                 let actionButtons = '';
                 if (canEditDelete) {
                     actionButtons = `

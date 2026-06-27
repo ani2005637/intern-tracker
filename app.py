@@ -546,9 +546,18 @@ def update_log(log_id):
     if not log:
         return jsonify({"error": "Daily log not found"}), 404
 
-    # Interns/Employees can only update their own logs. Managers/Admins can update any log.
+    # Find owner role
+    owner = db.users.find_one({"username": log['intern_name']})
+    owner_role = owner['role'] if owner else 'Intern'
+
+    # Enforce edit restrictions:
+    # 1. Interns and Employees can only edit their own logs.
+    # 2. Managers can edit their own logs or logs of Interns/Employees, but NOT other Managers or Admins.
     if user['role'] in ['Intern', 'Employee'] and log['intern_name'] != user['username']:
         return jsonify({"error": "Forbidden: You cannot modify this log"}), 403
+    elif user['role'] == 'Manager':
+        if owner_role in ['Manager', 'Admin'] and log['intern_name'] != user['username']:
+            return jsonify({"error": "Forbidden: Only Admin can modify/review a Manager's log"}), 403
 
     data = request.json
     if not data:
@@ -615,9 +624,18 @@ def delete_log(log_id):
     if not log:
         return jsonify({"error": "Daily log not found"}), 404
 
-    # Interns/Employees can only delete their own logs. Managers/Admins can delete any log.
+    # Find owner role
+    owner = db.users.find_one({"username": log['intern_name']})
+    owner_role = owner['role'] if owner else 'Intern'
+
+    # Enforce delete restrictions:
+    # 1. Interns/Employees can only delete their own logs.
+    # 2. Managers can delete their own logs or logs of Interns/Employees, but NOT other Managers or Admins.
     if user['role'] in ['Intern', 'Employee'] and log['intern_name'] != user['username']:
         return jsonify({"error": "Forbidden: You cannot delete this log"}), 403
+    elif user['role'] == 'Manager':
+        if owner_role in ['Manager', 'Admin'] and log['intern_name'] != user['username']:
+            return jsonify({"error": "Forbidden: Only Admin can delete a Manager's log"}), 403
 
     db.intern_logs.delete_one({"_id": ObjectId(log_id)})
     return jsonify({"message": "Daily log deleted successfully!"})
@@ -684,6 +702,10 @@ def add_task():
     if user['role'] == 'Employee' and target_username != user['username'] and target_role != 'Intern':
         return jsonify({"error": "Forbidden: Employees can only assign tasks to themselves or Interns"}), 403
 
+    # 3. Managers and Admins can only have tasks assigned to them by Admins
+    if target_role in ['Manager', 'Admin'] and user['role'] != 'Admin':
+        return jsonify({"error": "Forbidden: Only Admin can assign tasks to Managers or Admins"}), 403
+
     try:
         db.tasks.insert_one({
             "intern_name": target_username,
@@ -743,9 +765,16 @@ def update_task(task_id):
     if not task:
         return jsonify({"error": "Task not found"}), 404
     
-    # Access checks: Interns/Employees can only update tasks assigned to them
+    # Access checks:
+    # 1. Interns/Employees can only update tasks assigned to them
+    # 2. Managers can only update tasks of Interns/Employees, or their own tasks
+    owner = db.users.find_one({"username": task['intern_name']})
+    owner_role = owner['role'] if owner else 'Intern'
     if user['role'] in ['Intern', 'Employee'] and task['intern_name'] != user['username']:
         return jsonify({"error": "Forbidden: You cannot modify this task"}), 403
+    elif user['role'] == 'Manager':
+        if owner_role in ['Manager', 'Admin'] and task['intern_name'] != user['username']:
+            return jsonify({"error": "Forbidden: Only Admin can modify tasks of Managers or Admins"}), 403
 
     update_fields = {}
     if status is not None:
@@ -793,11 +822,16 @@ def delete_task(task_id):
     
     # Interns cannot delete tasks.
     # Employees can only delete tasks if they created it.
-    # Managers/Admins can delete any task.
+    # Managers/Admins can delete any task, except tasks of other Managers/Admins (only Admin can).
+    owner = db.users.find_one({"username": task['intern_name']})
+    owner_role = owner['role'] if owner else 'Intern'
     if user['role'] == 'Intern':
         return jsonify({"error": "Forbidden"}), 403
     elif user['role'] == 'Employee' and task['assigned_by'] != user['username']:
         return jsonify({"error": "Forbidden: You can only delete tasks you created"}), 403
+    elif user['role'] == 'Manager':
+        if owner_role in ['Manager', 'Admin'] and task['intern_name'] != user['username']:
+            return jsonify({"error": "Forbidden: Only Admin can delete tasks of Managers or Admins"}), 403
 
     db.tasks.delete_one({"_id": ObjectId(task_id)})
     return jsonify({"message": "Task deleted successfully!"})
@@ -939,6 +973,10 @@ def add_feedback():
     # Employees can ONLY leave feedback for Interns
     if user['role'] == 'Employee' and target_role != 'Intern':
         return jsonify({"error": "Employees can only log feedback for Interns"}), 403
+
+    # Managers and Admins can only receive feedback from Admins
+    if target_role in ['Manager', 'Admin'] and user['role'] != 'Admin':
+        return jsonify({"error": "Only Administrators can submit feedback for Managers or Admins"}), 403
 
     try:
         db.mentor_feedback.insert_one({
