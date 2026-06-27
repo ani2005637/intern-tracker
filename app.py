@@ -369,6 +369,16 @@ def get_users():
     # Fetch users
     users = list(db.users.find(query).sort("full_name", 1))
     
+    # Filter out test users
+    users = [u for u in users if not (
+        'test' in u['username'].lower() or 
+        'test' in u.get('full_name', '').lower() or 
+        'pending' in u.get('full_name', '').lower() or
+        u['username'].startswith('mgr_') or 
+        u['username'].startswith('emp_') or 
+        u['username'].startswith('int_')
+    )]
+    
     # Optimize N+1 query: Fetch the latest session for all users in a single aggregation query
     try:
         pipeline = [
@@ -1780,7 +1790,15 @@ def get_team_leave_balances():
         else:
             users_list = list(db.users.find({"role": "Employee"}, {"username": 1, "full_name": 1, "role": 1, "title": 1}))
 
-        # No test user filtering is needed
+        # Filter out test users from list
+        users_list = [u for u in users_list if not (
+            'test' in u['username'].lower() or 
+            'test' in u.get('full_name', '').lower() or 
+            'pending' in u.get('full_name', '').lower() or
+            u['username'].startswith('mgr_') or 
+            u['username'].startswith('emp_') or 
+            u['username'].startswith('int_')
+        )]
 
         current_year = datetime.datetime.utcnow().year
         team_balances = []

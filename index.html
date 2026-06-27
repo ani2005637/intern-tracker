@@ -3878,14 +3878,14 @@
 
                 const results = await Promise.all(promises);
                 
-                state.logs = results[0];
-                state.tasks = results[1];
-                state.skills = results[2];
-                state.feedback = results[3];
+                state.logs = results[0].filter(l => !isTestUser(l.intern_name, l.intern_fullname));
+                state.tasks = results[1].filter(t => !isTestUser(t.intern_name));
+                state.skills = results[2].filter(s => !isTestUser(s.intern_name));
+                state.feedback = results[3].filter(f => !isTestUser(f.intern_name));
                 
-                const newNotifs = results[4];
-                state.sessionLogs = results[5];
-                state.leaveRequests = results[6];
+                const newNotifs = results[4].filter(n => !isTestUser(n.username) && !n.message.toLowerCase().includes('test'));
+                state.sessionLogs = results[5].filter(s => !isTestUser(s.username, s.full_name));
+                state.leaveRequests = results[6].filter(l => !isTestUser(l.username, l.full_name));
 
                 // Show toasts for new notifications if not the initial load
                 if (state.notifications && state.notifications.length > 0) {
