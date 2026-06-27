@@ -1618,6 +1618,14 @@
                             <div class="stat-label">Skills & Courses</div>
                         </div>
                     </div>
+                    <div class="stat-card" id="stat-pending-deliverables-card" style="position: relative;">
+                        <div class="stat-icon" style="color: var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div style="flex: 1;">
+                            <div class="stat-value" id="stat-pending-deliverables" style="color: var(--danger); cursor: default;">0</div>
+                            <div class="stat-label">Pending Deliverables</div>
+                            <div id="stat-pending-deliverables-names" style="display:none; position: absolute; left: 0; top: 100%; z-index: 999; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 16px; min-width: 220px; box-shadow: 0 8px 30px rgba(0,0,0,0.4); font-size: 13px; line-height: 1.8;"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Dashboard Inner Content Grid -->
@@ -1761,11 +1769,11 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="log_checkin">Check-In</label>
-                                    <input type="time" id="log_checkin" value="09:00">
+                                    <input type="time" id="log_checkin" value="09:00" onchange="calculateHoursFromTime('log_checkin', 'log_checkout', 'log_hours')">
                                 </div>
                                 <div class="form-group">
                                     <label for="log_checkout">Check-Out</label>
-                                    <input type="time" id="log_checkout" value="18:00">
+                                    <input type="time" id="log_checkout" value="18:00" onchange="calculateHoursFromTime('log_checkin', 'log_checkout', 'log_hours')">
                                 </div>
                             </div>
 
@@ -2617,11 +2625,11 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label for="edit_log_checkin">Check-In</label>
-                        <input type="time" id="edit_log_checkin" value="09:00">
+                        <input type="time" id="edit_log_checkin" value="09:00" onchange="calculateHoursFromTime('edit_log_checkin', 'edit_log_checkout', 'edit_log_hours')">
                     </div>
                     <div class="form-group">
                         <label for="edit_log_checkout">Check-Out</label>
-                        <input type="time" id="edit_log_checkout" value="18:00">
+                        <input type="time" id="edit_log_checkout" value="18:00" onchange="calculateHoursFromTime('edit_log_checkin', 'edit_log_checkout', 'edit_log_hours')">
                     </div>
                 </div>
                 <div class="form-group">
@@ -3218,6 +3226,28 @@
             }
         }
 
+        function calculateHoursFromTime(checkInId, checkOutId, hoursId) {
+            const role = getEffectiveUserRole();
+            if (role !== 'Manager') return; // ONLY for managers
+
+            const checkInVal = document.getElementById(checkInId).value;
+            const checkOutVal = document.getElementById(checkOutId).value;
+            const hoursInput = document.getElementById(hoursId);
+
+            if (!checkInVal || !checkOutVal || !hoursInput) return;
+
+            const [inH, inM] = checkInVal.split(':').map(Number);
+            const [outH, outM] = checkOutVal.split(':').map(Number);
+
+            let diffMinutes = (outH * 60 + outM) - (inH * 60 + inM);
+            if (diffMinutes < 0) {
+                diffMinutes += 24 * 60; // overnight checkin/checkout calculation support
+            }
+
+            const diffHours = diffMinutes / 60;
+            hoursInput.value = diffHours.toFixed(2);
+        }
+
         // Setup layouts, forms and sidebars based on logged-in user's role
         function setupPortalForRole() {
             hideAuthOverlay();
@@ -3446,6 +3476,43 @@
 
             // Initialize E2EE Keys
             initializeE2EE().catch(err => console.error("E2EE init error:", err));
+
+            // Enforce Manager hours worked auto-calculation constraint
+            const logHours = document.getElementById('log_hours');
+            const editLogHours = document.getElementById('edit_log_hours');
+            if (role === 'Manager') {
+                if (logHours) {
+                    logHours.readOnly = true;
+                    logHours.style.background = 'rgba(255, 255, 255, 0.05)';
+                    logHours.style.color = 'var(--text-muted)';
+                    logHours.style.cursor = 'not-allowed';
+                    logHours.title = 'Calculated automatically from Check-In/Out for Managers';
+                }
+                if (editLogHours) {
+                    editLogHours.readOnly = true;
+                    editLogHours.style.background = 'rgba(255, 255, 255, 0.05)';
+                    editLogHours.style.color = 'var(--text-muted)';
+                    editLogHours.style.cursor = 'not-allowed';
+                    editLogHours.title = 'Calculated automatically from Check-In/Out for Managers';
+                }
+                // Compute initial values based on current inputs
+                calculateHoursFromTime('log_checkin', 'log_checkout', 'log_hours');
+            } else {
+                if (logHours) {
+                    logHours.readOnly = false;
+                    logHours.style.background = '';
+                    logHours.style.color = '';
+                    logHours.style.cursor = '';
+                    logHours.title = '';
+                }
+                if (editLogHours) {
+                    editLogHours.readOnly = false;
+                    editLogHours.style.background = '';
+                    editLogHours.style.color = '';
+                    editLogHours.style.cursor = '';
+                    editLogHours.title = '';
+                }
+            }
 
             // Populate assignment select options dynamically
             populateDropdowns();
@@ -3872,6 +3939,62 @@
             document.getElementById('stat-tasks').innerText = completedTasks;
             document.getElementById('stat-skills').innerText = skillsLogged;
 
+            // Pending Deliverables: people who have NOT marked deliverable_completed = 'Yes' today
+            const todayStr = new Date().toISOString().split('T')[0];
+            
+            // For admin/manager: check across all visible subordinates
+            // For employee/intern: check only themselves
+            let pendingDeliverableCount = 0;
+            let pendingDeliverableNames = [];
+
+            if (role === 'Admin' || role === 'Manager') {
+                const subordinateUsers = activeUsers.filter(u => {
+                    if (!u.approved) return false;
+                    if (role === 'Admin') return u.role === 'Manager' || u.role === 'Employee' || u.role === 'Intern';
+                    if (role === 'Manager') return u.role === 'Employee' || u.role === 'Intern';
+                    return false;
+                });
+
+                subordinateUsers.forEach(u => {
+                    // Check if this user has a log today with deliverable_completed = 'Yes'
+                    const todayLog = state.logs.find(l =>
+                        l.intern_name && l.intern_name.toLowerCase().trim() === u.username.toLowerCase().trim() &&
+                        l.date_logged === todayStr && l.deliverable_completed === 'Yes'
+                    );
+                    if (!todayLog) {
+                        pendingDeliverableCount++;
+                        pendingDeliverableNames.push(u.full_name);
+                    }
+                });
+            } else {
+                // For employee/intern: just count their own logs where deliverable = No
+                const myPending = filteredLogs.filter(l => l.deliverable_completed !== 'Yes').length;
+                pendingDeliverableCount = myPending;
+            }
+
+            const statPendingEl = document.getElementById('stat-pending-deliverables');
+            if (statPendingEl) {
+                statPendingEl.innerText = pendingDeliverableCount;
+                statPendingEl.style.color = pendingDeliverableCount > 0 ? 'var(--danger)' : 'var(--success)';
+            }
+
+            // Set tooltip for admin/manager hover
+            const tooltipEl = document.getElementById('stat-pending-deliverables-names');
+            const statCard = document.getElementById('stat-pending-deliverables-card');
+            if (tooltipEl && statCard) {
+                if ((role === 'Admin' || role === 'Manager') && pendingDeliverableNames.length > 0) {
+                    tooltipEl.innerHTML = `<div style="font-weight:700; margin-bottom:6px; color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Not submitted today:</div>` +
+                        pendingDeliverableNames.map(n => `<div style="display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-circle-xmark" style="color:var(--danger); font-size:10px;"></i> ${escapeHTML(n)}</div>`).join('');
+                    statCard.addEventListener('mouseenter', () => { tooltipEl.style.display = 'block'; });
+                    statCard.addEventListener('mouseleave', () => { tooltipEl.style.display = 'none'; });
+                    statCard.style.cursor = 'pointer';
+                } else {
+                    statCard.style.cursor = 'default';
+                    statCard.removeEventListener('mouseenter', () => {});
+                    statCard.removeEventListener('mouseleave', () => {});
+                }
+            }
+
             // 2. Task Status Breakdown
             const taskCounts = {
                 'Not Started': 0,
@@ -3926,7 +4049,7 @@
 
             const weeklyData = {};
             for (let w = 1; w <= weeksToDisplay; w++) {
-                weeklyData[w] = { hours: 0, days: new Set(), deliverables: 0 };
+                weeklyData[w] = { hours: 0, days: new Set(), deliverables: 0, deliverableNames: [] };
             }
 
             filteredLogs.forEach(log => {
@@ -3941,6 +4064,12 @@
                         weeklyData[weekNum].days.add(log.date_logged);
                         if (log.deliverable_completed === 'Yes') {
                             weeklyData[weekNum].deliverables++;
+                            // Track name for tooltip
+                            const uObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
+                            const uName = uObj ? uObj.full_name : (log.intern_name || 'Unknown');
+                            if (!weeklyData[weekNum].deliverableNames.includes(uName)) {
+                                weeklyData[weekNum].deliverableNames.push(uName);
+                            }
                         }
                     }
                 }
@@ -3956,13 +4085,28 @@
                 const status = hoursVal >= 30 ? 'On Track' : (hoursVal > 0 ? 'Behind' : 'Not Started');
                 const badgeClass = status === 'On Track' ? 'badge-success' : (status === 'Behind' ? 'badge-warning' : 'badge-primary');
 
+                // Build deliverable cell — hover tooltip for admin/manager
+                let deliverableCell = '';
+                if ((role === 'Admin' || role === 'Manager') && weekInfo.deliverables > 0) {
+                    const namesList = weekInfo.deliverableNames.map(n => `<div style='display:flex;align-items:center;gap:6px;'><i class='fa-solid fa-circle-check' style='color:var(--success);font-size:10px;'></i>${escapeHTML(n)}</div>`).join('');
+                    const tooltipHtml = `<div style='font-weight:700;margin-bottom:6px;color:var(--success);'><i class='fa-solid fa-circle-check'></i> Completed deliverables:</div>${namesList}`;
+                    deliverableCell = `<span class='deliverable-count-tip' style='cursor:pointer; font-weight:700; color:var(--success); position:relative;' 
+                        onmouseenter="this.querySelector('.del-tip').style.display='block'" 
+                        onmouseleave="this.querySelector('.del-tip').style.display='none'">
+                        ${weekInfo.deliverables}
+                        <div class='del-tip' style='display:none; position:absolute; left:0; top:100%; z-index:9999; background:var(--bg-card); border:1px solid var(--border-color); border-radius:10px; padding:12px 16px; min-width:200px; box-shadow:0 8px 30px rgba(0,0,0,0.4); font-size:13px; line-height:1.8; font-weight:400;'>${tooltipHtml}</div>
+                    </span>`;
+                } else {
+                    deliverableCell = `<span style='font-weight:700;'>${weekInfo.deliverables}</span>`;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>Week ${w}</td>
                     <td>${hoursVal.toFixed(1)} hrs</td>
                     <td>${daysCount} days</td>
                     <td>${avgHours}</td>
-                    <td>${weekInfo.deliverables}</td>
+                    <td>${deliverableCell}</td>
                     <td><span class="badge ${badgeClass}">${status}</span></td>
                 `;
                 weeklyTableBody.appendChild(tr);
@@ -4537,7 +4681,6 @@
 
             document.getElementById('edit_log_intern_name').value = displayName;
             document.getElementById('edit_log_date').value = log.date_logged;
-            document.getElementById('edit_log_hours').value = log.hours_worked;
             document.getElementById('edit_log_checkin').value = log.check_in || "09:00";
             document.getElementById('edit_log_checkout').value = log.check_out || "18:00";
             document.getElementById('edit_log_category').value = log.task_category || "Other";
@@ -4546,6 +4689,26 @@
             document.getElementById('edit_log_blockers').value = log.blockers || "None";
             document.getElementById('edit_log_skills').value = log.skills_used || "";
             document.getElementById('edit_log_notes').value = log.notes || "";
+
+            // For Managers: lock hours and auto-calculate from check-in/out
+            const editHoursEl = document.getElementById('edit_log_hours');
+            const editRole = getEffectiveUserRole();
+            if (editRole === 'Manager') {
+                editHoursEl.readOnly = true;
+                editHoursEl.style.background = 'rgba(255, 255, 255, 0.05)';
+                editHoursEl.style.color = 'var(--text-muted)';
+                editHoursEl.style.cursor = 'not-allowed';
+                editHoursEl.title = 'Auto-calculated from Check-In/Out for Managers';
+                // Calculate hours from check-in/out
+                calculateHoursFromTime('edit_log_checkin', 'edit_log_checkout', 'edit_log_hours');
+            } else {
+                editHoursEl.readOnly = false;
+                editHoursEl.style.background = '';
+                editHoursEl.style.color = '';
+                editHoursEl.style.cursor = '';
+                editHoursEl.title = '';
+                editHoursEl.value = log.hours_worked;
+            }
 
             // Populate mood rating buttons
             document.querySelectorAll('#edit_log_mood_group .rating-btn').forEach(btn => {
@@ -5057,8 +5220,13 @@
             }
         }, 10000);
 
-        // Automatically calculate hours from check-in/out
+        // Automatically calculate hours from check-in/out (for all roles as a helpful suggestion)
         function autoCalculateHours() {
+            const role = getEffectiveUserRole();
+            // For Manager: already handled by calculateHoursFromTime (locked field)
+            // For others: only auto-fill if the hours field is empty or default
+            if (role === 'Manager') return; // Manager handled by calculateHoursFromTime
+
             const checkinVal = document.getElementById('log_checkin').value;
             const checkoutVal = document.getElementById('log_checkout').value;
             if (!checkinVal || !checkoutVal) return;
@@ -6917,6 +7085,23 @@
             } catch (err) {
                 console.error("Failed to load leaves data: ", err);
             }
+        }
+
+        function initLeaveFormKeyboardGuard() {
+            const leaveForm = document.getElementById('leaveForm');
+            if (leaveForm) {
+                leaveForm.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && e.target.tagName.toLowerCase() !== 'textarea') {
+                        e.preventDefault();
+                    }
+                });
+            }
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLeaveFormKeyboardGuard);
+        } else {
+            initLeaveFormKeyboardGuard();
         }
 
         // Run initial authentication check on load
