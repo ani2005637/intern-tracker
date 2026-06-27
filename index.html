@@ -1500,6 +1500,9 @@
                 <li class="nav-item" data-tab="direct-messages" id="nav-direct-messages">
                     <button><i class="fa-solid fa-message"></i> Messages</button>
                 </li>
+                <li class="nav-item" data-tab="leaves" id="nav-leaves">
+                    <button><i class="fa-solid fa-umbrella-beach"></i> Leaves</button>
+                </li>
             </ul>
 
             <div class="user-profile-footer">
@@ -2391,6 +2394,195 @@
                     </div>
                 </div>
             </section>
+
+            <!-- LEAVE MANAGEMENT MODULE -->
+            <section id="leaves" class="tab-content">
+                <!-- Top Balance Display Cards -->
+                <div class="grid-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    <!-- Casual Leave Card -->
+                    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <div style="background: rgba(99, 102, 241, 0.1); color: var(--primary); width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                            <i class="fa-solid fa-plane"></i>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 13px; font-weight: 500; color: var(--text-muted); margin: 0 0 4px 0;">Casual Leave (CL)</h3>
+                            <div style="font-size: 24px; font-weight: 700; color: var(--text-color); margin-bottom: 2px;">
+                                <span id="leave-cl-remaining">12.0</span> / 12.0 <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">days</span>
+                            </div>
+                            <span style="font-size: 11px; color: var(--success); font-weight: 500;"><i class="fa-solid fa-rotate"></i> Roll-over enabled (Annual Summary)</span>
+                        </div>
+                    </div>
+
+                    <!-- Sick Leave Card -->
+                    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <div style="background: rgba(239, 68, 68, 0.1); color: var(--danger); width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                            <i class="fa-solid fa-briefcase-medical"></i>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 13px; font-weight: 500; color: var(--text-muted); margin: 0 0 4px 0;">Sick Leave (SL)</h3>
+                            <div style="font-size: 24px; font-weight: 700; color: var(--text-color); margin-bottom: 2px;">
+                                <span id="leave-sl-remaining">12.0</span> / 12.0 <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">days</span>
+                            </div>
+                            <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;"><i class="fa-solid fa-circle-info"></i> Doctor's Letter option available</span>
+                        </div>
+                    </div>
+
+                    <!-- Timing Leave Card -->
+                    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <div style="background: rgba(245, 158, 11, 0.1); color: var(--warning); width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 13px; font-weight: 500; color: var(--text-muted); margin: 0 0 4px 0;">Timing Leave (Hourly)</h3>
+                            <div style="font-size: 24px; font-weight: 700; color: var(--text-color); margin-bottom: 2px;">
+                                <span id="leave-hours-remaining">96.0</span> / 96.0 <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">hrs</span>
+                            </div>
+                            <span style="font-size: 11px; color: var(--primary); font-weight: 500;"><i class="fa-solid fa-calendar-days"></i> 8 hours provided monthly</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Layout Grid -->
+                <div class="grid-2" style="display: grid; grid-template-columns: 1fr; gap: 24px;">
+                    
+                    <!-- Left: Apply Leave Form -->
+                    <div class="panel" id="leave-apply-panel">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-pen-nib"></i>
+                            <span>Apply for Leave</span>
+                        </div>
+                        <form id="leaveForm" onsubmit="applyForLeave(event)">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leave_type">Leave Type</label>
+                                    <select id="leave_type" required onchange="handleLeaveTypeChange()">
+                                        <option value="CL">Casual Leave (CL)</option>
+                                        <option value="SL">Sick Leave (SL)</option>
+                                        <option value="Hours">Timing Leave (Hourly)</option>
+                                        <option value="LOP">Loss of Pay (LOP) - Unpaid</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="leave-duration-group">
+                                    <label id="leave-duration-label" for="leave_days">Duration (Days)</label>
+                                    <input type="number" id="leave_days" min="0.5" step="0.5" value="1.0" required>
+                                    <input type="number" id="leave_hours" min="0.5" step="0.5" value="1.0" style="display: none;">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leave_start">Start Date</label>
+                                    <input type="date" id="leave_start" required onchange="calculateLeaveDuration()">
+                                </div>
+                                <div class="form-group">
+                                    <label for="leave_end">End Date</label>
+                                    <input type="date" id="leave_end" required onchange="calculateLeaveDuration()">
+                                </div>
+                            </div>
+
+                            <!-- Optional Doctor's Letter for SL -->
+                            <div class="form-group" id="leave-doc-group" style="display: none; margin-bottom: 16px;">
+                                <label for="leave_doc_file">Upload Doctor's Letter (Optional)</label>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="file" id="leave_doc_file" accept=".png,.jpg,.jpeg,.pdf" onchange="handleSLUpload()">
+                                    <span id="leave-upload-status" style="font-size: 13px; color: var(--text-muted);"></span>
+                                </div>
+                                <input type="hidden" id="leave_doc_url">
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label for="leave_reason">Reason for Leave</label>
+                                <textarea id="leave_reason" placeholder="State reason clearly..." required rows="3" style="width: 100%; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-color); padding: 10px; outline: none; resize: vertical;"></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" id="btn-submit-leave" style="width: 100%; justify-content: center; font-weight: 600;">
+                                <i class="fa-solid fa-paper-plane"></i> Submit Leave Request
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Right: Leave Requests for Review (Supervisor only) -->
+                    <div class="panel" id="leave-review-panel" style="display: none;">
+                        <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-inbox"></i>
+                                <span>Leave Requests for Review</span>
+                            </div>
+                        </div>
+                        <div style="overflow-x: auto; margin-top: 15px;">
+                            <table class="data-table" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Role</th>
+                                        <th>Type</th>
+                                        <th>Duration</th>
+                                        <th>Dates</th>
+                                        <th>Reason</th>
+                                        <th>Attachment</th>
+                                        <th style="text-align: center;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leave-review-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Team Leave Balances (Supervisor only) -->
+                    <div class="panel" id="leave-team-balances-panel" style="display: none;">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-users-viewfinder"></i>
+                            <span>Team Leave Balances</span>
+                        </div>
+                        <div style="overflow-x: auto; margin-top: 15px;">
+                            <table class="data-table" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Role / Title</th>
+                                        <th style="text-align: center;">Casual Leave (CL)</th>
+                                        <th style="text-align: center;">Sick Leave (SL)</th>
+                                        <th style="text-align: center;">Timing Leave</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leave-team-balances-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Left/Full: My Leave Request History -->
+                    <div class="panel" id="leave-history-panel" style="grid-column: span 1;">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <span>My Leave Requests History</span>
+                        </div>
+                        <div style="overflow-x: auto; margin-top: 15px;">
+                            <table class="data-table" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th>Duration</th>
+                                        <th>Reason</th>
+                                        <th>Attachment</th>
+                                        <th>Status</th>
+                                        <th>Reviewed By</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leave-history-table-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
         </main>
     </div>
 
@@ -2635,7 +2827,8 @@
                     'skills': 'Skills & Learnings Log',
                     'feedback': 'Mentor & Supervisor Feedback',
                     'announcements': 'General Announcements Feed',
-                    'direct-messages': 'Secure Private Messaging'
+                    'direct-messages': 'Secure Private Messaging',
+                    'leaves': 'Leave Management & Balances'
                 };
                 const subtitles = {
                     'dashboard': role === 'Admin' ? 'Complete system overview and login tracking' : (role === 'Manager' ? 'Subordinate tracking & operations statistics' : (role === 'Employee' ? 'Personal progress & tasks tracking' : 'Dynamic Summary Analytics')),
@@ -2645,7 +2838,8 @@
                     'skills': 'Track online courses and proficiency changes',
                     'feedback': 'Chronological record of supervisor feedback and action items',
                     'announcements': 'Post messages, links, images, video, and audio notes to the entire team',
-                    'direct-messages': 'End-to-End Encrypted (E2EE) secure direct chat'
+                    'direct-messages': 'End-to-End Encrypted (E2EE) secure direct chat',
+                    'leaves': 'Apply for leaves, view balances, and manage team approvals'
                 };
                 document.getElementById('tab-title').innerText = titles[tabId] || 'Workspace';
                 document.getElementById('tab-subtitle').innerText = subtitles[tabId] || '';
@@ -2654,6 +2848,8 @@
                     fetchAnnouncements();
                 } else if (tabId === 'direct-messages') {
                     fetchDMUsersList();
+                } else if (tabId === 'leaves') {
+                    loadLeavesData();
                 } else {
                     fetchData(); // Only dynamically fetch latest workspace data for non-messaging tabs
                 }
@@ -3038,6 +3234,13 @@
                 document.getElementById('dash-filter-panel').style.display = 'none';
                 document.getElementById('team-roster-panel').style.display = 'none';
                 document.getElementById('task-view-toggle-container').style.display = 'none';
+
+                // Leave elements visibility
+                document.getElementById('nav-leaves').style.display = 'block';
+                document.getElementById('leave-review-panel').style.display = 'none';
+                document.getElementById('leave-team-balances-panel').style.display = 'none';
+                document.getElementById('leave-history-panel').style.gridColumn = 'span 1';
+                document.querySelector('#leaves .grid-2').style.gridTemplateColumns = '1fr';
             } else if (role === 'Manager') {
                 // Manager needs separate workspace for daily logs, but also reviews subordinates
                 document.getElementById('nav-logs').style.display = 'block'; // Show personal logs
@@ -3064,6 +3267,13 @@
                 
                 document.getElementById('task-view-toggle-container').style.display = 'flex';
                 setTaskView('team'); // Reset view to team tasks by default
+
+                // Leave elements visibility
+                document.getElementById('nav-leaves').style.display = 'block';
+                document.getElementById('leave-review-panel').style.display = 'block';
+                document.getElementById('leave-team-balances-panel').style.display = 'block';
+                document.getElementById('leave-history-panel').style.gridColumn = 'span 1';
+                document.querySelector('#leaves .grid-2').style.gridTemplateColumns = 'repeat(auto-fit, minmax(400px, 1fr))';
             } else {
                 // Admin
                 document.getElementById('nav-logs').style.display = 'none';
@@ -3090,6 +3300,13 @@
                 
                 document.getElementById('task-view-toggle-container').style.display = 'none';
                 setTaskView('team');
+
+                // Leave elements visibility
+                document.getElementById('nav-leaves').style.display = 'block';
+                document.getElementById('leave-review-panel').style.display = 'block';
+                document.getElementById('leave-team-balances-panel').style.display = 'block';
+                document.getElementById('leave-history-panel').style.gridColumn = 'span 1';
+                document.querySelector('#leaves .grid-2').style.gridTemplateColumns = 'repeat(auto-fit, minmax(400px, 1fr))';
             }
 
             // Customize create-task panel titles/buttons based on role
@@ -3483,7 +3700,8 @@
                     apiFetch('/skills').then(r => r.json()),
                     apiFetch('/feedback').then(r => r.json()),
                     apiFetch('/notifications').then(r => r.json()),
-                    sessionLogsPromise
+                    sessionLogsPromise,
+                    apiFetch('/leaves/requests').then(r => r.json())
                 ];
 
                 const results = await Promise.all(promises);
@@ -3495,6 +3713,7 @@
                 
                 const newNotifs = results[4];
                 state.sessionLogs = results[5];
+                state.leaveRequests = results[6];
 
                 // Show toasts for new notifications if not the initial load
                 if (state.notifications && state.notifications.length > 0) {
@@ -3809,13 +4028,29 @@
                     actionButtons = `<span style="color:var(--text-muted); font-size:11px;">No Actions</span>`;
                 }
 
+                // Find if there is an approved Hours (Timing Leave / Permission) request on this date
+                const approvedHoursReq = (state.leaveRequests || []).find(r => 
+                    r.username.toLowerCase().trim() === log.intern_name.toLowerCase().trim() &&
+                    r.leave_type === 'Hours' &&
+                    r.status === 'Approved' &&
+                    r.start_date === log.date_logged
+                );
+
+                let hoursDisplay = `${log.hours_worked} hrs`;
+                if (approvedHoursReq) {
+                    hoursDisplay = `
+                        <div style="font-weight: 700; color: var(--success);">${log.hours_worked} hrs worked</div>
+                        <div style="font-size: 11px; color: var(--warning); font-weight: 600; margin-top: 2px;"><i class="fa-solid fa-clock"></i> ${approvedHoursReq.hours_requested} hrs permission</div>
+                    `;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${escapeHTML(displayName)}</td>
                     <td>${log.date_logged}</td>
                     <td>${log.check_in || '-'}</td>
                     <td>${log.check_out || '-'}</td>
-                    <td style="font-weight:700;">${log.hours_worked} hrs</td>
+                    <td style="font-weight:700; min-width: 140px;">${hoursDisplay}</td>
                     <td>
                         <strong>${escapeHTML(log.tasks_completed)}</strong>
                         ${log.blockers && log.blockers !== 'None' && log.blockers !== '' ? `<div style="color:var(--danger); font-size:12px; margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(log.blockers)}</div>` : ''}
@@ -4066,13 +4301,29 @@
                     actionButtons = `<span style="color:var(--text-muted); font-size:11px;">No Actions</span>`;
                 }
 
+                // Find if there is an approved Hours (Timing Leave / Permission) request on this date
+                const approvedHoursReq = (state.leaveRequests || []).find(r => 
+                    r.username.toLowerCase().trim() === log.intern_name.toLowerCase().trim() &&
+                    r.leave_type === 'Hours' &&
+                    r.status === 'Approved' &&
+                    r.start_date === log.date_logged
+                );
+
+                let hoursDisplay = `${log.hours_worked} hrs`;
+                if (approvedHoursReq) {
+                    hoursDisplay = `
+                        <div style="font-weight: 700; color: var(--success);">${log.hours_worked} hrs worked</div>
+                        <div style="font-size: 11px; color: var(--warning); font-weight: 600; margin-top: 2px;"><i class="fa-solid fa-clock"></i> ${approvedHoursReq.hours_requested} hrs permission</div>
+                    `;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${escapeHTML(displayName)}</td>
                     <td>${log.date_logged}</td>
                     <td>${log.check_in || '-'}</td>
                     <td>${log.check_out || '-'}</td>
-                    <td style="font-weight:700;">${log.hours_worked} hrs</td>
+                    <td style="font-weight:700; min-width: 140px;">${hoursDisplay}</td>
                     <td>
                         <strong>${escapeHTML(log.tasks_completed)}</strong>
                         ${log.blockers && log.blockers !== 'None' && log.blockers !== '' ? `<div style="color:var(--danger); font-size:12px; margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(log.blockers)}</div>` : ''}
@@ -6172,6 +6423,306 @@
                     '"': '&quot;'
                 }[tag] || tag)
             );
+        }
+
+        // ----------------- LEAVE MANAGEMENT LOGIC -----------------
+        function calculateLeaveDuration() {
+            const type = document.getElementById('leave_type').value;
+            const startVal = document.getElementById('leave_start').value;
+            const endVal = document.getElementById('leave_end').value;
+            const daysInput = document.getElementById('leave_days');
+            const hoursInput = document.getElementById('leave_hours');
+
+            if (!startVal) return;
+
+            // If it is Timing Leave (Hours), make sure start and end date are same date
+            if (type === 'Hours') {
+                document.getElementById('leave_end').value = startVal;
+                document.getElementById('leave_end').disabled = true;
+                return;
+            } else {
+                document.getElementById('leave_end').disabled = false;
+            }
+
+            if (!endVal) return;
+
+            const start = new Date(startVal);
+            const end = new Date(endVal);
+
+            if (end < start) {
+                document.getElementById('leave_end').value = startVal;
+                daysInput.value = "1.0";
+                return;
+            }
+
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            daysInput.value = diffDays.toFixed(1);
+        }
+
+        function handleLeaveTypeChange() {
+            const type = document.getElementById('leave_type').value;
+            const docGroup = document.getElementById('leave-doc-group');
+            const durationLabel = document.getElementById('leave-duration-label');
+            const daysInput = document.getElementById('leave_days');
+            const hoursInput = document.getElementById('leave_hours');
+
+            if (type === 'SL') {
+                docGroup.style.display = 'block';
+            } else {
+                docGroup.style.display = 'none';
+            }
+
+            if (type === 'Hours') {
+                durationLabel.innerText = 'Duration (Hours)';
+                daysInput.style.display = 'none';
+                daysInput.required = false;
+                hoursInput.style.display = 'block';
+                hoursInput.required = true;
+            } else {
+                durationLabel.innerText = 'Duration (Days)';
+                daysInput.style.display = 'block';
+                daysInput.required = true;
+                hoursInput.style.display = 'none';
+                hoursInput.required = false;
+            }
+
+            calculateLeaveDuration();
+        }
+
+        async function handleSLUpload() {
+            const fileInput = document.getElementById('leave_doc_file');
+            const statusSpan = document.getElementById('leave-upload-status');
+            const urlInput = document.getElementById('leave_doc_url');
+
+            if (!fileInput.files || fileInput.files.length === 0) return;
+
+            statusSpan.innerText = 'Uploading...';
+            statusSpan.style.color = 'var(--text-muted)';
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    urlInput.value = data.url;
+                    statusSpan.innerText = 'Uploaded successfully!';
+                    statusSpan.style.color = 'var(--success)';
+                } else {
+                    const err = await res.json();
+                    statusSpan.innerText = `Upload failed: ${err.error || 'Unknown error'}`;
+                    statusSpan.style.color = 'var(--danger)';
+                    fileInput.value = '';
+                }
+            } catch (e) {
+                statusSpan.innerText = 'Upload connection failed';
+                statusSpan.style.color = 'var(--danger)';
+                fileInput.value = '';
+            }
+        }
+
+        async function applyForLeave(event) {
+            event.preventDefault();
+
+            const leaveType = document.getElementById('leave_type').value;
+            const startDate = document.getElementById('leave_start').value;
+            const endDate = document.getElementById('leave_end').value;
+            const reason = document.getElementById('leave_reason').value;
+            const docNoteUrl = document.getElementById('leave_doc_url').value || null;
+
+            let daysRequested = 0.0;
+            let hoursRequested = 0.0;
+
+            if (leaveType === 'Hours') {
+                hoursRequested = parseFloat(document.getElementById('leave_hours').value || 0.0);
+            } else {
+                daysRequested = parseFloat(document.getElementById('leave_days').value || 0.0);
+            }
+
+            const payload = {
+                leave_type: leaveType,
+                start_date: startDate,
+                end_date: endDate,
+                reason: reason,
+                days_requested: daysRequested,
+                hours_requested: hoursRequested,
+                doc_note_url: docNoteUrl
+            };
+
+            const submitBtn = document.getElementById('btn-submit-leave');
+            if (submitBtn) submitBtn.disabled = true;
+
+            try {
+                const res = await apiFetch('/leaves/apply', {
+                    method: 'POST',
+                    body: payload
+                });
+
+                showToast('Leave request submitted successfully!', 'success');
+                
+                // Reset form
+                document.getElementById('leaveForm').reset();
+                document.getElementById('leave_doc_url').value = '';
+                document.getElementById('leave-upload-status').innerText = '';
+                handleLeaveTypeChange();
+
+                loadLeavesData();
+            } catch (err) {
+                showToast(err.message || 'Failed to submit leave request', 'error');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
+
+        async function actionLeaveRequest(requestId, action) {
+            try {
+                const res = await apiFetch(`/leaves/action/${requestId}`, {
+                    method: 'POST',
+                    body: { action: action }
+                });
+
+                showToast(`Leave request ${action === 'Approve' ? 'approved' : 'rejected'} successfully!`, 'success');
+                loadLeavesData();
+                
+                // Refresh main logs and dashboard data since leave state changed
+                if (typeof fetchData === 'function') fetchData();
+            } catch (err) {
+                showToast(err.message || 'Failed to action leave request', 'error');
+            }
+        }
+
+        async function loadLeavesData() {
+            const role = getEffectiveUserRole();
+
+            try {
+                // 1. Fetch own leave balances
+                const balRes = await apiFetch('/leaves/balances');
+                
+                const clRemaining = 12.0 - balRes.cl_used;
+                const slRemaining = 12.0 - balRes.sl_used;
+                const hoursRemaining = 96.0 - balRes.hours_used;
+
+                document.getElementById('leave-cl-remaining').innerText = clRemaining.toFixed(1);
+                document.getElementById('leave-sl-remaining').innerText = slRemaining.toFixed(1);
+                document.getElementById('leave-hours-remaining').innerText = hoursRemaining.toFixed(1);
+
+                // Add monthly summaries to cards
+                const currentMonth = new Date().getMonth() + 1; // 1-12
+                const clAccrued = currentMonth * 1.0;
+                const slAccrued = currentMonth * 1.0;
+                const hoursAccrued = currentMonth * 8.0;
+
+                const clRemainingMonthly = Math.max(0.0, clAccrued - balRes.cl_used);
+                const slRemainingMonthly = Math.max(0.0, slAccrued - balRes.sl_used);
+                const hoursRemainingMonthly = Math.max(0.0, hoursAccrued - balRes.hours_used);
+
+                // Inject monthly indicators
+                const clCard = document.getElementById('leave-cl-remaining').parentElement.nextElementSibling;
+                clCard.innerHTML = `<i class="fa-solid fa-rotate"></i> Rollover: ${clRemainingMonthly.toFixed(1)} / ${clAccrued.toFixed(1)} days (Accrued Month ${currentMonth})`;
+                
+                const slCard = document.getElementById('leave-sl-remaining').parentElement.nextElementSibling;
+                slCard.innerHTML = `<i class="fa-solid fa-circle-info"></i> Monthly: ${slRemainingMonthly.toFixed(1)} / ${slAccrued.toFixed(1)} days (Accrued Month ${currentMonth})`;
+                
+                const hoursCard = document.getElementById('leave-hours-remaining').parentElement.nextElementSibling;
+                hoursCard.innerHTML = `<i class="fa-solid fa-calendar-days"></i> Monthly: ${hoursRemainingMonthly.toFixed(1)} / ${hoursAccrued.toFixed(1)} hrs (Accrued Month ${currentMonth})`;
+
+                // 2. Fetch requests
+                const reqRes = await apiFetch('/leaves/requests');
+
+                // Filter my requests
+                const myRequests = reqRes.filter(r => r.username.toLowerCase().trim() === currentUser.username.toLowerCase().trim());
+                const historyTbody = document.getElementById('leave-history-table-body');
+                historyTbody.innerHTML = '';
+
+                if (myRequests.length === 0) {
+                    historyTbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding: 15px;">No leave requests in history.</td></tr>';
+                } else {
+                    myRequests.forEach(r => {
+                        const durationStr = r.leave_type === 'Hours' ? `${r.hours_requested} hrs` : `${r.days_requested} days`;
+                        const statusClass = r.status === 'Approved' ? 'badge-success' : (r.status === 'Pending' ? 'badge-warning' : 'badge-danger');
+                        const docHtml = r.doc_note_url ? `<a href="${r.doc_note_url}" target="_blank" style="color: var(--primary); font-weight: 500;"><i class="fa-solid fa-file-arrow-down"></i> View Note</a>` : '<span style="color: var(--text-muted);">None</span>';
+                        
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-weight: 600;">${r.leave_type}</td>
+                            <td>${r.start_date}</td>
+                            <td>${r.end_date}</td>
+                            <td style="font-weight: 700;">${durationStr}</td>
+                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(r.reason)}">${escapeHTML(r.reason)}</td>
+                            <td>${docHtml}</td>
+                            <td><span class="badge ${statusClass}">${r.status}</span></td>
+                            <td>${escapeHTML(r.actioned_fullname || '-')}</td>
+                        `;
+                        historyTbody.appendChild(tr);
+                    });
+                }
+
+                // 3. Populate Supervisor Panels if applicable
+                if (role === 'Admin' || role === 'Manager') {
+                    // Populate pending review board
+                    const reviewRequests = reqRes.filter(r => r.status === 'Pending' && r.username.toLowerCase().trim() !== currentUser.username.toLowerCase().trim());
+                    const reviewTbody = document.getElementById('leave-review-table-body');
+                    reviewTbody.innerHTML = '';
+
+                    if (reviewRequests.length === 0) {
+                        reviewTbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding: 20px;">No pending leave requests to review.</td></tr>';
+                    } else {
+                        reviewRequests.forEach(r => {
+                            const durationStr = r.leave_type === 'Hours' ? `${r.hours_requested} hrs` : `${r.days_requested} days`;
+                            const docHtml = r.doc_note_url ? `<a href="${r.doc_note_url}" target="_blank" style="color: var(--primary); font-weight: 500;"><i class="fa-solid fa-file-arrow-down"></i> View Note</a>` : '<span style="color: var(--text-muted);">None</span>';
+                            
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="font-weight: 600;">${escapeHTML(r.full_name)}</td>
+                                <td><span class="badge badge-primary" style="font-size: 11px;">${r.role}</span></td>
+                                <td style="font-weight: 600; color: var(--primary);">${r.leave_type}</td>
+                                <td style="font-weight: 700;">${durationStr}</td>
+                                <td>${r.start_date} to ${r.end_date}</td>
+                                <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(r.reason)}">${escapeHTML(r.reason)}</td>
+                                <td>${docHtml}</td>
+                                <td style="text-align: center; white-space: nowrap;">
+                                    <button onclick="actionLeaveRequest('${r.id}', 'Approve')" class="btn-action edit" title="Approve Request" style="background: rgba(16, 185, 129, 0.1); color: var(--success); padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; margin-right: 6px; font-weight:600;"><i class="fa-solid fa-circle-check"></i> Approve</button>
+                                    <button onclick="actionLeaveRequest('${r.id}', 'Reject')" class="btn-action delete" title="Reject Request" style="background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; font-weight:600;"><i class="fa-solid fa-circle-xmark"></i> Reject</button>
+                                </td>
+                            `;
+                            reviewTbody.appendChild(tr);
+                        });
+                    }
+
+                    // Fetch team balances
+                    const teamRes = await apiFetch('/leaves/team-balances');
+                    const teamTbody = document.getElementById('leave-team-balances-table-body');
+                    teamTbody.innerHTML = '';
+
+                    if (teamRes.length === 0) {
+                        teamTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 15px;">No team members found.</td></tr>';
+                    } else {
+                        teamRes.forEach(t => {
+                            const clRem = 12.0 - t.cl_used;
+                            const slRem = 12.0 - t.sl_used;
+                            const hoursRem = 96.0 - t.hours_used;
+
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="font-weight: 600;">${escapeHTML(t.full_name)}</td>
+                                <td><span style="font-size:12px; color:var(--text-muted);">${t.role} ${t.title ? `(${t.title})` : ''}</span></td>
+                                <td style="text-align: center; font-weight: 700; color: var(--text-color);">${clRem.toFixed(1)} / 12.0 days</td>
+                                <td style="text-align: center; font-weight: 700; color: var(--text-color);">${slRem.toFixed(1)} / 12.0 days</td>
+                                <td style="text-align: center; font-weight: 700; color: var(--primary);">${hoursRem.toFixed(1)} / 96.0 hrs</td>
+                            `;
+                            teamTbody.appendChild(tr);
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load leaves data: ", err);
+            }
         }
 
         // Run initial authentication check on load

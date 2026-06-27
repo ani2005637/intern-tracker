@@ -1518,6 +1518,254 @@ def delete_direct_message(message_id):
         return jsonify({"error": f"Failed to delete message: {str(e)}"}), 500
 
 
+# Helper to ensure leave balances are initialized for a user
+def ensure_leave_balances(username):
+    # Total allocations: CL=12 days, SL=12 days, hours=96 hours (8 hours/month * 12)
+    db.leave_balances.update_one(
+        {"username": username},
+        {"$setOnInsert": {
+            "cl_used": 0.0,
+            "sl_used": 0.0,
+            "hours_used": 0.0
+        }},
+        upsert=True
+    )
+
+@app.route('/leaves/balances', methods=['GET'])
+def get_leave_balances():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    ensure_leave_balances(user['username'])
+    bal = db.leave_balances.find_one({"username": user['username']})
+    
+    return jsonify({
+        "cl_used": bal.get("cl_used", 0.0),
+        "sl_used": bal.get("sl_used", 0.0),
+        "hours_used": bal.get("hours_used", 0.0),
+        "cl_allocation": 12.0,
+        "sl_allocation": 12.0,
+        "hours_allocation": 96.0
+    })
+
+@app.route('/leaves/apply', methods=['POST'])
+def apply_leave():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    leave_type = data.get('leave_type')
+    start_date = data.get('start_date')
+    end_date = data.get('end_date')
+    reason = data.get('reason', '')
+    days_requested = float(data.get('days_requested', 0.0))
+    hours_requested = float(data.get('hours_requested', 0.0))
+    doc_note_url = data.get('doc_note_url', None)
+
+    if not leave_type or not start_date or not end_date or not reason:
+        return jsonify({"error": "Missing required fields (leave_type, start_date, end_date, reason)"}), 400
+
+    if start_date > end_date:
+        return jsonify({"error": "Start date cannot be after end date."}), 400
+
+    if leave_type == 'Hours':
+        if hours_requested <= 0:
+            return jsonify({"error": "Hours requested must be greater than 0."}), 400
+    else:
+        if days_requested <= 0:
+            return jsonify({"error": "Days requested must be greater than 0."}), 400
+
+    ensure_leave_balances(user['username'])
+    bal = db.leave_balances.find_one({"username": user['username']})
+
+    # Validate balances unless it is Loss of Pay (LOP)
+    if leave_type != 'LOP':
+        if leave_type == 'CL':
+            cl_remaining = 12.0 - bal.get("cl_used", 0.0)
+            if days_requested > cl_remaining:
+                return jsonify({"error": f"Insufficient Casual Leave balance. Remaining: {cl_remaining} days, Requested: {days_requested} days."}), 400
+        elif leave_type == 'SL':
+            sl_remaining = 12.0 - bal.get("sl_used", 0.0)
+            if days_requested > sl_remaining:
+                return jsonify({"error": f"Insufficient Sick Leave balance. Remaining: {sl_remaining} days, Requested: {days_requested} days."}), 400
+        elif leave_type == 'Hours':
+            hours_remaining = 96.0 - bal.get("hours_used", 0.0)
+            if hours_requested > hours_remaining:
+                return jsonify({"error": f"Insufficient Timing Leave balance. Remaining: {hours_remaining} hours, Requested: {hours_requested} hours."}), 400
+
+    # Create request document
+    req = {
+        "username": user['username'],
+        "full_name": user['full_name'],
+        "role": user['role'],
+        "leave_type": leave_type,
+        "start_date": start_date,
+        "end_date": end_date,
+        "reason": reason,
+        "days_requested": days_requested,
+        "hours_requested": hours_requested,
+        "doc_note_url": doc_note_url,
+        "status": "Pending",
+        "submitted_at": datetime.datetime.utcnow().isoformat() + 'Z',
+        "actioned_by": None,
+        "actioned_at": None
+    }
+
+    db.leave_requests.insert_one(req)
+    return jsonify({"message": "Leave request submitted successfully!"}), 201
+
+@app.route('/leaves/requests', methods=['GET'])
+def get_leave_requests():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        # Enforce role hierarchy for leave requests visibility
+        if user['role'] == 'Admin':
+            # Admin sees all leave requests
+            requests = list(db.leave_requests.find({}).sort("submitted_at", -1))
+        elif user['role'] == 'Manager':
+            # Manager sees subordinate requests + their own requests
+            sub_users = list(db.users.find({"role": {"$in": ["Employee", "Intern"]}}, {"username": 1}))
+            sub_usernames = [u['username'] for u in sub_users]
+            sub_usernames.append(user['username'])
+            requests = list(db.leave_requests.find({"username": {"$in": sub_usernames}}).sort("submitted_at", -1))
+        else:
+            # Employee / Intern sees their own requests
+            requests = list(db.leave_requests.find({"username": user['username']}).sort("submitted_at", -1))
+        
+        return jsonify(serialize(requests))
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch requests: {str(e)}"}), 500
+
+@app.route('/leaves/action/<request_id>', methods=['POST'])
+def action_leave_request(request_id):
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user['role'] not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden: Only Admin or Manager can action requests"}), 403
+
+    data = request.json
+    if not data or 'action' not in data:
+        return jsonify({"error": "Missing action parameter"}), 400
+
+    action = data['action'] # 'Approve' or 'Reject'
+    if action not in ['Approve', 'Reject']:
+        return jsonify({"error": "Invalid action value"}), 400
+
+    try:
+        req = db.leave_requests.find_one({"_id": ObjectId(request_id)})
+    except Exception:
+        return jsonify({"error": "Invalid request ID format"}), 400
+
+    if not req:
+        return jsonify({"error": "Leave request not found"}), 404
+
+    if req['status'] != 'Pending':
+        return jsonify({"error": "Leave request has already been actioned"}), 400
+
+    # Manager cannot action Admin requests or other Manager requests
+    if user['role'] == 'Manager':
+        target_user = db.users.find_one({"username": req['username']})
+        target_role = target_user['role'] if target_user else 'Intern'
+        if target_role in ['Admin', 'Manager']:
+            return jsonify({"error": "Forbidden: Managers cannot action requests from other Managers or Admins"}), 403
+
+    status_val = 'Approved' if action == 'Approve' else 'Rejected'
+
+    # If approved, deduct leave balance
+    if action == 'Approve' and req['leave_type'] != 'LOP':
+        target_username = req['username']
+        ensure_leave_balances(target_username)
+        
+        # Deduct
+        update_query = {}
+        if req['leave_type'] == 'CL':
+            update_query = {"$inc": {"cl_used": req['days_requested']}}
+        elif req['leave_type'] == 'SL':
+            update_query = {"$inc": {"sl_used": req['days_requested']}}
+        elif req['leave_type'] == 'Hours':
+            update_query = {"$inc": {"hours_used": req['hours_requested']}}
+
+        if update_query:
+            db.leave_balances.update_one({"username": target_username}, update_query)
+
+    # Update request status
+    db.leave_requests.update_one(
+        {"_id": ObjectId(request_id)},
+        {"$set": {
+            "status": status_val,
+            "actioned_by": user['username'],
+            "actioned_fullname": user['full_name'],
+            "actioned_at": datetime.datetime.utcnow().isoformat() + 'Z'
+        }}
+    )
+
+    # Trigger notification back to the employee
+    try:
+        db.notifications.insert_one({
+            "username": req['username'],
+            "message": f"Your leave request for {req['leave_type']} ({req['start_date']} to {req['end_date']}) has been {status_val} by {user['full_name']}.",
+            "type": "leave_status",
+            "created_at": datetime.datetime.utcnow(),
+            "read": False
+        })
+    except Exception as ne:
+        print(f"Failed to create leave notification: {ne}")
+
+    return jsonify({"message": f"Leave request successfully {status_val}!"})
+
+@app.route('/leaves/team-balances', methods=['GET'])
+def get_team_leave_balances():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user['role'] not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        # Enforce hierarchy rules:
+        # Managers see Employees & Interns
+        # Admins see everyone
+        if user['role'] == 'Admin':
+            users_list = list(db.users.find({}, {"username": 1, "full_name": 1, "role": 1, "title": 1}))
+        else:
+            users_list = list(db.users.find({"role": {"$in": ["Employee", "Intern"]}}, {"username": 1, "full_name": 1, "role": 1, "title": 1}))
+
+        # Filter out test users
+        users_list = [u for u in users_list if not isTestUser(u['username'], u['full_name'])]
+
+        team_balances = []
+        for u in users_list:
+            ensure_leave_balances(u['username'])
+            bal = db.leave_balances.find_one({"username": u['username']})
+            team_balances.append({
+                "username": u['username'],
+                "full_name": u['full_name'],
+                "role": u['role'],
+                "title": u.get("title", ""),
+                "cl_used": bal.get("cl_used", 0.0),
+                "sl_used": bal.get("sl_used", 0.0),
+                "hours_used": bal.get("hours_used", 0.0),
+                "cl_allocation": 12.0,
+                "sl_allocation": 12.0,
+                "hours_allocation": 96.0
+            })
+        
+        return jsonify(team_balances)
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch team leave balances: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=True, host='0.0.0.0', port=port)
