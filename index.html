@@ -3309,8 +3309,8 @@
                 document.getElementById('nav-leaves').style.display = 'block';
                 document.getElementById('leave-review-panel').style.display = 'block';
                 document.getElementById('leave-team-balances-panel').style.display = 'block';
-                document.getElementById('leave-history-panel').style.gridColumn = 'span 1';
-                document.querySelector('#leaves .grid-2').style.gridTemplateColumns = 'repeat(auto-fit, minmax(400px, 1fr))';
+                document.getElementById('leave-history-panel').style.display = 'none';
+                document.querySelector('#leaves .grid-2').style.gridTemplateColumns = '1fr';
             }
 
             // Customize create-task panel titles/buttons based on role
@@ -6640,31 +6640,36 @@
                 const reqRes = await apiFetch('/leaves/requests');
 
                 // Filter my requests
-                const myRequests = reqRes.filter(r => r.username.toLowerCase().trim() === currentUser.username.toLowerCase().trim());
-                const historyTbody = document.getElementById('leave-history-table-body');
-                historyTbody.innerHTML = '';
-
-                if (myRequests.length === 0) {
-                    historyTbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding: 15px;">No leave requests in history.</td></tr>';
+                if (role === 'Admin') {
+                    document.getElementById('leave-history-panel').style.display = 'none';
                 } else {
-                    myRequests.forEach(r => {
-                        const durationStr = r.leave_type === 'Hours' ? `${r.hours_requested} hrs` : `${r.days_requested} days`;
-                        const statusClass = r.status === 'Approved' ? 'badge-success' : (r.status === 'Pending' ? 'badge-warning' : 'badge-danger');
-                        const docHtml = r.doc_note_url ? `<a href="${r.doc_note_url}" target="_blank" style="color: var(--primary); font-weight: 500;"><i class="fa-solid fa-file-arrow-down"></i> View Note</a>` : '<span style="color: var(--text-muted);">None</span>';
-                        
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td style="font-weight: 600;">${r.leave_type}</td>
-                            <td>${r.start_date}</td>
-                            <td>${r.end_date}</td>
-                            <td style="font-weight: 700;">${durationStr}</td>
-                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(r.reason)}">${escapeHTML(r.reason)}</td>
-                            <td>${docHtml}</td>
-                            <td><span class="badge ${statusClass}">${r.status}</span></td>
-                            <td>${escapeHTML(r.actioned_fullname || '-')}</td>
-                        `;
-                        historyTbody.appendChild(tr);
-                    });
+                    document.getElementById('leave-history-panel').style.display = 'block';
+                    const myRequests = reqRes.filter(r => r.username.toLowerCase().trim() === currentUser.username.toLowerCase().trim());
+                    const historyTbody = document.getElementById('leave-history-table-body');
+                    historyTbody.innerHTML = '';
+
+                    if (myRequests.length === 0) {
+                        historyTbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding: 15px;">No leave requests in history.</td></tr>';
+                    } else {
+                        myRequests.forEach(r => {
+                            const durationStr = r.leave_type === 'Hours' ? `${r.hours_requested} hrs` : `${r.days_requested} days`;
+                            const statusClass = r.status === 'Approved' ? 'badge-success' : (r.status === 'Pending' ? 'badge-warning' : 'badge-danger');
+                            const docHtml = r.doc_note_url ? `<a href="${r.doc_note_url}" target="_blank" style="color: var(--primary); font-weight: 500;"><i class="fa-solid fa-file-arrow-down"></i> View Note</a>` : '<span style="color: var(--text-muted);">None</span>';
+                            
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="font-weight: 600;">${r.leave_type}</td>
+                                <td>${r.start_date}</td>
+                                <td>${r.end_date}</td>
+                                <td style="font-weight: 700;">${durationStr}</td>
+                                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(r.reason)}">${escapeHTML(r.reason)}</td>
+                                <td>${docHtml}</td>
+                                <td><span class="badge ${statusClass}">${r.status}</span></td>
+                                <td>${escapeHTML(r.actioned_fullname || '-')}</td>
+                            `;
+                            historyTbody.appendChild(tr);
+                        });
+                    }
                 }
 
                 // 3. Populate Supervisor Panels if applicable

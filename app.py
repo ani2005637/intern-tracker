@@ -1624,6 +1624,34 @@ def apply_leave():
     }
 
     db.leave_requests.insert_one(req)
+
+    # Notify Admins and Managers about the new leave request
+    try:
+        # Notify all Admins
+        admins = list(db.users.find({"role": "Admin"}))
+        for admin in admins:
+            db.notifications.insert_one({
+                "username": admin['username'],
+                "message": f"New leave request ({leave_type}) submitted by {user['full_name']} ({user['role']}).",
+                "type": "leave_request_alert",
+                "created_at": datetime.datetime.utcnow(),
+                "read": False
+            })
+        
+        # If the requester is an Employee, notify all Managers
+        if user['role'] == 'Employee':
+            managers = list(db.users.find({"role": "Manager"}))
+            for manager in managers:
+                db.notifications.insert_one({
+                    "username": manager['username'],
+                    "message": f"New leave request ({leave_type}) submitted by {user['full_name']} (Employee).",
+                    "type": "leave_request_alert",
+                    "created_at": datetime.datetime.utcnow(),
+                    "read": False
+                })
+    except Exception as e:
+        print(f"Failed to create leave request notifications: {e}")
+
     return jsonify({"message": "Leave request submitted successfully!"}), 201
 
 @app.route('/leaves/requests', methods=['GET'])
