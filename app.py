@@ -468,12 +468,7 @@ def login():
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
 
-    user = db.users.find_one({
-        "$or": [
-            {"username": username},
-            {"alias_username": username}
-        ]
-    })
+    user = db.users.find_one({"username": username})
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
 
