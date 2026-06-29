@@ -4757,6 +4757,12 @@
                     return;
                 }
 
+                const hoursLogged = parseFloat(document.getElementById('edit_log_hours').value);
+                if (hoursLogged > 9.0) {
+                    showToast("Hours cannot exceed 9 hours per day. Please start freshly from next day.", "error");
+                    return;
+                }
+
                 const selectedMood = document.querySelector('#edit_log_mood_group .rating-btn.active').dataset.value;
                 const payload = {
                     date_logged: selectedLogDate,
@@ -5358,6 +5364,13 @@
 
             if (selectedLogDate && (selectedLogDate < localYesterdayStr || selectedLogDate > localTodayStr)) {
                 showToast("Daily log date must be yesterday or today.", "error");
+                submitBtn.disabled = false;
+                return;
+            }
+
+            const hoursLogged = parseFloat(document.getElementById('log_hours').value);
+            if (hoursLogged > 9.0) {
+                showToast("Hours cannot exceed 9 hours per day. Please start freshly from next day.", "error");
                 submitBtn.disabled = false;
                 return;
             }
@@ -6967,7 +6980,7 @@
                     document.getElementById('leave-apply-panel').style.display = 'block';
 
                     // 1. Fetch own leave balances
-                    const balRes = await apiFetch('/leaves/balances');
+                    const balRes = await (await apiFetch('/leaves/balances')).json();
                     
                     const clRemaining = 12.0 - (balRes.cl_used || 0.0);
                     const slRemaining = 12.0 - (balRes.sl_used || 0.0);
@@ -6993,7 +7006,7 @@
                 }
 
                 // 2. Fetch requests
-                const reqRes = await apiFetch('/leaves/requests');
+                const reqRes = await (await apiFetch('/leaves/requests')).json();
 
                 // Filter my requests
                 if (role === 'Admin') {
@@ -7061,7 +7074,7 @@
                     }
 
                     // Fetch team balances
-                    const teamRes = await apiFetch('/leaves/team-balances');
+                    const teamRes = await (await apiFetch('/leaves/team-balances')).json();
                     const teamTbody = document.getElementById('leave-team-balances-table-body');
                     teamTbody.innerHTML = '';
 
