@@ -8330,7 +8330,7 @@
             }
 
             // Get headers from first row keys, excluding '_row_idx'
-            const headers = Object.keys(rows[0]).filter(k => k !== '_row_idx');
+            const headers = Object.keys(rows[0]).filter(k => k !== '_row_idx' && k !== 'id');
             
             // Render Headers
             const thr = document.createElement('tr');
