@@ -5,6 +5,7 @@ from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import datetime
+import openpyxl
 
 app = Flask(__name__)
 
@@ -2676,42 +2677,84 @@ def get_team_leave_balances():
 
 HOSTING_EXCEL_PATH = r"C:\Users\s.anirudh\Downloads\Domain & Hosting Account Details.xlsx"
 
-@app.route('/admin/hosting-details', methods=['GET'])
-def get_hosting_details_route():
-    user = get_logged_in_user()
-    if not user or user['role'] != 'Admin':
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    if not os.path.exists(HOSTING_EXCEL_PATH):
-        return jsonify({"error": "Hosting details Excel file not found"}), 404
-
+def import_hosting_from_excel_if_empty():
     try:
-        wb = openpyxl.load_workbook(HOSTING_EXCEL_PATH, read_only=True)
-        data = {}
+        if db.hosting_details.count_documents({}) > 0:
+            return
+    except Exception:
+        return
+    
+    excel_path = HOSTING_EXCEL_PATH
+    if not os.path.exists(excel_path):
+        excel_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Domain & Hosting Account Details.xlsx")
+        
+    if not os.path.exists(excel_path):
+        return
+        
+    try:
+        wb = openpyxl.load_workbook(excel_path, read_only=True)
         for sheet_name in wb.sheetnames:
             sheet = wb[sheet_name]
             rows = list(sheet.iter_rows(values_only=True))
             if not rows:
-                data[sheet_name] = []
                 continue
             headers = [str(h) if h is not None else f"Col{i}" for i, h in enumerate(rows[0])]
-            # Remove trailing empty columns if any
             while headers and headers[-1].startswith('Col') and headers[-1] != 'Col0':
                 headers.pop()
-            
-            sheet_data = []
+                
             for r_idx, r in enumerate(rows[1:], start=2):
                 if all(v is None for v in r):
                     continue
-                row_dict = {"_row_idx": r_idx}
+                doc = {
+                    "category": sheet_name,
+                    "created_at": datetime.datetime.utcnow()
+                }
                 for c_idx, val in enumerate(r):
                     if c_idx < len(headers):
                         header = headers[c_idx]
                         if isinstance(val, (datetime.datetime, datetime.date)):
                             val = val.strftime("%Y-%m-%d")
-                        row_dict[header] = val if val is not None else ""
-                sheet_data.append(row_dict)
-            data[sheet_name] = sheet_data
+                        doc[header] = val if val is not None else ""
+                db.hosting_details.insert_one(doc)
+        print("Successfully imported hosting details from Excel to MongoDB!")
+    except Exception as e:
+        print(f"Failed to import hosting details: {e}")
+
+@app.route('/admin/hosting-details', methods=['GET'])
+def get_hosting_details_route():
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        import_hosting_from_excel_if_empty()
+        
+        categories = ['GoDaddy', 'CPanel Domain', 'Domain With Us', 'Domain With Client']
+        data = {cat: [] for cat in categories}
+        
+        docs = list(db.hosting_details.find({}))
+        # Sort manually by Sl No if it is numeric
+        def get_sl_no(d):
+            try:
+                return int(d.get('Sl No', 9999))
+            except (ValueError, TypeError):
+                return 9999
+
+        docs.sort(key=get_sl_no)
+
+        for doc in docs:
+            cat = doc.get('category', 'GoDaddy')
+            if cat not in data:
+                data[cat] = []
+            
+            item = {
+                "id": str(doc['_id'])
+            }
+            for k, v in doc.items():
+                if k not in ['_id', 'category', 'created_at']:
+                    item[k] = v
+            data[cat].append(item)
+            
         return jsonify(data)
     except Exception as e:
         return jsonify({"error": f"Failed to read hosting details: {str(e)}"}), 500
@@ -2722,47 +2765,32 @@ def add_hosting_detail_route():
     if not user or user['role'] != 'Admin':
         return jsonify({"error": "Unauthorized"}), 401
 
-    if not os.path.exists(HOSTING_EXCEL_PATH):
-        return jsonify({"error": "Hosting details Excel file not found"}), 404
-
     try:
         req_data = request.get_json() or {}
-        sheet_name = req_data.get('sheet_name')
+        category = req_data.get('sheet_name')
         new_values = req_data.get('values', {})
 
-        if not sheet_name:
-            return jsonify({"error": "Sheet name is required"}), 400
+        if not category:
+            return jsonify({"error": "Category is required"}), 400
 
-        wb = openpyxl.load_workbook(HOSTING_EXCEL_PATH)
-        if sheet_name not in wb.sheetnames:
-            return jsonify({"error": f"Sheet {sheet_name} not found"}), 404
-
-        sheet = wb[sheet_name]
-        headers = [str(h) for h in next(sheet.iter_rows(max_row=1, values_only=True))]
-        
-        # Calculate next Sl No
+        last_item = db.hosting_details.find_one({"category": category}, sort=[("Sl No", -1)])
         sl_no = 1
-        rows = list(sheet.iter_rows(values_only=True))
-        if len(rows) > 1:
-            last_sl = None
-            for r in reversed(rows[1:]):
-                if r[0] is not None:
-                    try:
-                        last_sl = int(r[0])
-                        break
-                    except ValueError:
-                        pass
-            if last_sl is not None:
-                sl_no = last_sl + 1
+        if last_item and last_item.get('Sl No'):
+            try:
+                sl_no = int(last_item['Sl No']) + 1
+            except (ValueError, TypeError):
+                pass
 
-        row_data = [None] * len(headers)
-        row_data[0] = sl_no
-        for col_name, val in new_values.items():
-            if col_name in headers and headers.index(col_name) > 0:
-                row_data[headers.index(col_name)] = val
+        doc = {
+            "category": category,
+            "created_at": datetime.datetime.utcnow(),
+            "Sl No": sl_no
+        }
+        for k, v in new_values.items():
+            if k not in ['id', 'category', 'created_at', 'Sl No']:
+                doc[k] = v
 
-        sheet.append(row_data)
-        wb.save(HOSTING_EXCEL_PATH)
+        db.hosting_details.insert_one(doc)
         return jsonify({"message": "Hosting detail added successfully"})
     except Exception as e:
         return jsonify({"error": f"Failed to add hosting detail: {str(e)}"}), 500
@@ -2773,34 +2801,20 @@ def edit_hosting_detail_route():
     if not user or user['role'] != 'Admin':
         return jsonify({"error": "Unauthorized"}), 401
 
-    if not os.path.exists(HOSTING_EXCEL_PATH):
-        return jsonify({"error": "Hosting details Excel file not found"}), 404
-
     try:
         req_data = request.get_json() or {}
-        sheet_name = req_data.get('sheet_name')
-        row_idx = req_data.get('row_idx')
+        item_id = req_data.get('row_idx')
         updated_values = req_data.get('values', {})
 
-        if not sheet_name or row_idx is None:
-            return jsonify({"error": "Sheet name and row index are required"}), 400
+        if not item_id:
+            return jsonify({"error": "Item ID is required"}), 400
 
-        wb = openpyxl.load_workbook(HOSTING_EXCEL_PATH)
-        if sheet_name not in wb.sheetnames:
-            return jsonify({"error": f"Sheet {sheet_name} not found"}), 404
+        update_fields = {}
+        for k, v in updated_values.items():
+            if k not in ['id', 'category', 'created_at', 'Sl No']:
+                update_fields[k] = v
 
-        sheet = wb[sheet_name]
-        headers = [str(h) for h in next(sheet.iter_rows(max_row=1, values_only=True))]
-
-        for col_name, val in updated_values.items():
-            if col_name in headers:
-                col_idx = headers.index(col_name) + 1
-                # If it's the Sl No, don't update it
-                if col_idx == 1:
-                    continue
-                sheet.cell(row=int(row_idx), column=col_idx, value=val)
-
-        wb.save(HOSTING_EXCEL_PATH)
+        db.hosting_details.update_one({"_id": ObjectId(item_id)}, {"$set": update_fields})
         return jsonify({"message": "Hosting detail updated successfully"})
     except Exception as e:
         return jsonify({"error": f"Failed to update hosting detail: {str(e)}"}), 500
@@ -2811,32 +2825,76 @@ def delete_hosting_detail_route():
     if not user or user['role'] != 'Admin':
         return jsonify({"error": "Unauthorized"}), 401
 
-    if not os.path.exists(HOSTING_EXCEL_PATH):
-        return jsonify({"error": "Hosting details Excel file not found"}), 404
-
     try:
         req_data = request.get_json() or {}
-        sheet_name = req_data.get('sheet_name')
-        row_idx = req_data.get('row_idx')
+        item_id = req_data.get('row_idx')
 
-        if not sheet_name or row_idx is None:
-            return jsonify({"error": "Sheet name and row index are required"}), 400
+        if not item_id:
+            return jsonify({"error": "Item ID is required"}), 400
 
-        wb = openpyxl.load_workbook(HOSTING_EXCEL_PATH)
-        if sheet_name not in wb.sheetnames:
-            return jsonify({"error": f"Sheet {sheet_name} not found"}), 404
+        item = db.hosting_details.find_one({"_id": ObjectId(item_id)})
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+        category = item['category']
 
-        sheet = wb[sheet_name]
-        sheet.delete_rows(int(row_idx))
+        db.hosting_details.delete_one({"_id": ObjectId(item_id)})
         
-        # Recalculate Sl No
-        for idx, row in enumerate(sheet.iter_rows(min_row=2, max_col=1), start=1):
-            row[0].value = idx
+        category_items = list(db.hosting_details.find({"category": category}).sort("created_at", 1))
+        for idx, cat_item in enumerate(category_items, start=1):
+            db.hosting_details.update_one({"_id": cat_item['_id']}, {"$set": {"Sl No": idx}})
 
-        wb.save(HOSTING_EXCEL_PATH)
         return jsonify({"message": "Hosting detail deleted successfully"})
     except Exception as e:
         return jsonify({"error": f"Failed to delete hosting detail: {str(e)}"}), 500
+
+@app.route('/admin/hosting-details/export', methods=['GET'])
+def export_hosting_details_route():
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+        
+        categories = ['GoDaddy', 'CPanel Domain', 'Domain With Us', 'Domain With Client']
+        headers_map = {
+            'GoDaddy': ['Sl No', 'Domains', 'Renewal Date', 'domain cost'],
+            'CPanel Domain': ['Sl No', 'Domains', 'hosting renewal cost', 'date'],
+            'Domain With Us': ['Sl No', 'Domains', 'Domain With Us or Client'],
+            'Domain With Client': ['Sl No', 'Domains']
+        }
+        
+        for cat in categories:
+            sheet = wb.create_sheet(title=cat)
+            headers = headers_map[cat]
+            sheet.append(headers)
+            
+            docs = list(db.hosting_details.find({"category": cat}))
+            def get_sl_no(d):
+                try:
+                    return int(d.get('Sl No', 9999))
+                except (ValueError, TypeError):
+                    return 9999
+            docs.sort(key=get_sl_no)
+
+            for doc in docs:
+                row_data = []
+                for h in headers:
+                    row_data.append(doc.get(h, ""))
+                sheet.append(row_data)
+                
+        temp_filename = "Domain_Hosting_Account_Details_Export.xlsx"
+        wb.save(temp_filename)
+        
+        return send_from_directory(
+            os.path.abspath(os.path.dirname(__file__)),
+            temp_filename,
+            as_attachment=True,
+            download_name="Domain & Hosting Account Details.xlsx"
+        )
+    except Exception as e:
+        return jsonify({"error": f"Failed to export hosting details: {str(e)}"}), 500
 
 
 if __name__ == '__main__':
