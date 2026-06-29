@@ -2669,6 +2669,171 @@ def get_team_leave_balances():
         return jsonify({"error": f"Failed to fetch team leave balances: {str(e)}"}), 500
 
 
+HOSTING_EXCEL_PATH = r"C:\Users\s.anirudh\Downloads\Domain & Hosting Account Details.xlsx"
+
+@app.route('/admin/hosting-details', methods=['GET'])
+def get_hosting_details_route():
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    if not os.path.exists(HOSTING_EXCEL_PATH):
+        return jsonify({"error": "Hosting details Excel file not found"}), 404
+
+    try:
+        wb = openpyxl.load_workbook(HOSTING_EXCEL_PATH, read_only=True)
+        data = {}
+        for sheet_name in wb.sheetnames:
+            sheet = wb[sheet_name]
+            rows = list(sheet.iter_rows(values_only=True))
+            if not rows:
+                data[sheet_name] = []
+                continue
+            headers = [str(h) if h is not None else f"Col{i}" for i, h in enumerate(rows[0])]
+            # Remove trailing empty columns if any
+            while headers and headers[-1].startswith('Col') and headers[-1] != 'Col0':
+                headers.pop()
+            
+            sheet_data = []
+            for r_idx, r in enumerate(rows[1:], start=2):
+                if all(v is None for v in r):
+                    continue
+                row_dict = {"_row_idx": r_idx}
+                for c_idx, val in enumerate(r):
+                    if c_idx < len(headers):
+                        header = headers[c_idx]
+                        if isinstance(val, (datetime.datetime, datetime.date)):
+                            val = val.strftime("%Y-%m-%d")
+                        row_dict[header] = val if val is not None else ""
+                sheet_data.append(row_dict)
+            data[sheet_name] = sheet_data
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": f"Failed to read hosting details: {str(e)}"}), 500
+
+@app.route('/admin/hosting-details/add', methods=['POST'])
+def add_hosting_detail_route():
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not os.path.exists(HOSTING_EXCEL_PATH):
+        return jsonify({"error": "Hosting details Excel file not found"}), 404
+
+    try:
+        req_data = request.get_json() or {}
+        sheet_name = req_data.get('sheet_name')
+        new_values = req_data.get('values', {})
+
+        if not sheet_name:
+            return jsonify({"error": "Sheet name is required"}), 400
+
+        wb = openpyxl.load_workbook(HOSTING_EXCEL_PATH)
+        if sheet_name not in wb.sheetnames:
+            return jsonify({"error": f"Sheet {sheet_name} not found"}), 404
+
+        sheet = wb[sheet_name]
+        headers = [str(h) for h in next(sheet.iter_rows(max_row=1, values_only=True))]
+        
+        # Calculate next Sl No
+        sl_no = 1
+        rows = list(sheet.iter_rows(values_only=True))
+        if len(rows) > 1:
+            last_sl = None
+            for r in reversed(rows[1:]):
+                if r[0] is not None:
+                    try:
+                        last_sl = int(r[0])
+                        break
+                    except ValueError:
+                        pass
+            if last_sl is not None:
+                sl_no = last_sl + 1
+
+        row_data = [None] * len(headers)
+        row_data[0] = sl_no
+        for col_name, val in new_values.items():
+            if col_name in headers and headers.index(col_name) > 0:
+                row_data[headers.index(col_name)] = val
+
+        sheet.append(row_data)
+        wb.save(HOSTING_EXCEL_PATH)
+        return jsonify({"message": "Hosting detail added successfully"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to add hosting detail: {str(e)}"}), 500
+
+@app.route('/admin/hosting-details/edit', methods=['PUT'])
+def edit_hosting_detail_route():
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not os.path.exists(HOSTING_EXCEL_PATH):
+        return jsonify({"error": "Hosting details Excel file not found"}), 404
+
+    try:
+        req_data = request.get_json() or {}
+        sheet_name = req_data.get('sheet_name')
+        row_idx = req_data.get('row_idx')
+        updated_values = req_data.get('values', {})
+
+        if not sheet_name or row_idx is None:
+            return jsonify({"error": "Sheet name and row index are required"}), 400
+
+        wb = openpyxl.load_workbook(HOSTING_EXCEL_PATH)
+        if sheet_name not in wb.sheetnames:
+            return jsonify({"error": f"Sheet {sheet_name} not found"}), 404
+
+        sheet = wb[sheet_name]
+        headers = [str(h) for h in next(sheet.iter_rows(max_row=1, values_only=True))]
+
+        for col_name, val in updated_values.items():
+            if col_name in headers:
+                col_idx = headers.index(col_name) + 1
+                # If it's the Sl No, don't update it
+                if col_idx == 1:
+                    continue
+                sheet.cell(row=int(row_idx), column=col_idx, value=val)
+
+        wb.save(HOSTING_EXCEL_PATH)
+        return jsonify({"message": "Hosting detail updated successfully"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to update hosting detail: {str(e)}"}), 500
+
+@app.route('/admin/hosting-details/delete', methods=['DELETE'])
+def delete_hosting_detail_route():
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not os.path.exists(HOSTING_EXCEL_PATH):
+        return jsonify({"error": "Hosting details Excel file not found"}), 404
+
+    try:
+        req_data = request.get_json() or {}
+        sheet_name = req_data.get('sheet_name')
+        row_idx = req_data.get('row_idx')
+
+        if not sheet_name or row_idx is None:
+            return jsonify({"error": "Sheet name and row index are required"}), 400
+
+        wb = openpyxl.load_workbook(HOSTING_EXCEL_PATH)
+        if sheet_name not in wb.sheetnames:
+            return jsonify({"error": f"Sheet {sheet_name} not found"}), 404
+
+        sheet = wb[sheet_name]
+        sheet.delete_rows(int(row_idx))
+        
+        # Recalculate Sl No
+        for idx, row in enumerate(sheet.iter_rows(min_row=2, max_col=1), start=1):
+            row[0].value = idx
+
+        wb.save(HOSTING_EXCEL_PATH)
+        return jsonify({"message": "Hosting detail deleted successfully"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete hosting detail: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=True, host='0.0.0.0', port=port)
