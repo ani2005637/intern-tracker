@@ -37,6 +37,12 @@ try:
     db.announcements.create_index([("created_at", pymongo.DESCENDING)])
     db.direct_messages.create_index([("sender", pymongo.ASCENDING), ("recipient", pymongo.ASCENDING), ("created_at", pymongo.ASCENDING)])
     db.direct_messages.create_index([("recipient", pymongo.ASCENDING), ("created_at", pymongo.ASCENDING)])
+    # Drop conflicting old index on attendance if it exists
+    try:
+        db.attendance.drop_index("username_1_date_1")
+    except Exception:
+        pass
+    db.attendance.create_index([("username", pymongo.ASCENDING), ("year", pymongo.ASCENDING), ("month", pymongo.ASCENDING), ("day", pymongo.ASCENDING)], unique=True)
     print("Database indexes created/verified.")
 except Exception as ie:
     print(f"Warning: Failed to ensure database indexes: {ie}")
@@ -49,6 +55,204 @@ try:
     print("Startup migration completed successfully.")
 except Exception as me:
     print(f"Warning: Startup migration failed: {me}")
+
+def sync_attendance_on_boot():
+    try:
+        import openpyxl
+        import re
+
+        NAME_TO_USERNAME = {
+            "srinivas": "empsi01",
+            "jyothi": "empsi02",
+            "sowmya": "empsi03",
+            "naveen kumar": "empsi04",
+            "nikki": "empsi05",
+            "mavuri anand kumar": "empsi06",
+            "riya biswas dasgupta": "empsi07",
+            "adarsh": "empsi08",
+            "jakka balaji mahendra": "empsi09",
+            "bhuvan sai adithya": "empsi10",
+            "m.shalini sree": "empsi11",
+            "vansh goyal": "empsi12",
+            "srikakula anirudh": "empsi13"
+        }
+
+        # Check if attendance database already has records
+        if db.attendance.count_documents({}) > 0:
+            print("Attendance collection already populated. Skipping boot sync to preserve live edits.")
+            return
+
+        print("Starting boot sync for multiple months...")
+        
+        # Clear existing attendance records to ensure clean sync on first boot
+        db.attendance.delete_many({})
+        print("Cleared existing attendance database records.")
+
+        sync_jobs = [
+            ("jan-and-feb.xlsx", "Jan", 2026, 1),
+            ("jan-and-feb.xlsx", "Feb", 2026, 2),
+            ("march-april-may.xlsx", "Mar", 2026, 3),
+            ("march-april-may.xlsx", "Apr", 2026, 4),
+            ("march-april-may.xlsx", "May 2026", 2026, 5),
+            ("attendance.xlsx", None, 2026, 6) # None defaults to active sheet
+        ]
+
+        count_users = 0
+        count_attendance = 0
+
+        for filename, sheetname, year, month in sync_jobs:
+            excel_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+            if not os.path.exists(excel_path):
+                print(f"File {filename} not found. Skipping.")
+                continue
+
+            print(f"Syncing {filename} -> {sheetname or 'Active Sheet'} for {year}-{month}...")
+            wb = openpyxl.load_workbook(excel_path, read_only=True)
+            sheet = wb[sheetname] if sheetname else wb.active
+
+            rows = list(sheet.iter_rows(values_only=True))
+            if not rows or len(rows) < 2:
+                print(f"Sheet {sheetname or 'Active'} in {filename} is empty or lacks rows.")
+                continue
+
+            # Build header mapping
+            headers = rows[0]
+            header_map = {}
+            day_columns = {} # day_number -> column_index
+
+            for idx, h in enumerate(headers):
+                if h is None:
+                    continue
+                if isinstance(h, (datetime.datetime, datetime.date)):
+                    day_columns[h.day] = idx
+                elif isinstance(h, str):
+                    h_clean = h.strip().lower()
+                    header_map[h_clean] = idx
+                    
+                    # Regex to match "day 1", "day_1", "day1"
+                    m = re.match(r'^(?:day)\s*(\d+)$', h_clean)
+                    if m:
+                        day_columns[int(m.group(1))] = idx
+                elif isinstance(h, int):
+                    day_columns[h] = idx
+
+            # Safely get header index
+            def get_header_idx(keys):
+                for k in keys:
+                    if k in header_map:
+                        return header_map[k]
+                return None
+
+            emp_no_idx = get_header_idx(['emp no', 'emp_no', 'employee no', 'emp id', 'emp_id'])
+            name_idx = get_header_idx(['employee name', 'employee_name', 'name'])
+            designation_idx = get_header_idx(['designation', 'title'])
+            salary_idx = get_header_idx(['salary', 'monthly salary', 'gross salary', 'gross_salary'])
+            doj_idx = get_header_idx(['date of joining', 'date_of_joining', 'doj'])
+            active_idx = get_header_idx(['active', 'active status', 'status'])
+
+            if emp_no_idx is None or name_idx is None:
+                print(f"Critical headers 'Emp No' or 'Employee Name' not found in {filename} -> {sheetname or 'Active'}.")
+                continue
+
+            for r_idx in range(1, len(rows)):
+                row = rows[r_idx]
+                if not row or emp_no_idx >= len(row) or row[emp_no_idx] is None:
+                    continue
+
+                emp_name = str(row[name_idx]).strip()
+                norm_name = " ".join(emp_name.lower().split())
+                canonical_uname = NAME_TO_USERNAME.get(norm_name)
+                
+                emp_no = str(row[emp_no_idx]).strip().lower()
+                if canonical_uname:
+                    emp_no = canonical_uname
+
+                if not emp_no or emp_no in ['total', 'totals']:
+                    continue
+                designation = str(row[designation_idx]).strip() if (designation_idx is not None and designation_idx < len(row) and row[designation_idx] is not None) else "Employee"
+                
+                salary = 0.0
+                if salary_idx is not None and salary_idx < len(row) and row[salary_idx] is not None:
+                    try:
+                        salary = float(row[salary_idx])
+                    except ValueError:
+                        pass
+
+                doj = ""
+                if doj_idx is not None and doj_idx < len(row) and row[doj_idx] is not None:
+                    val = row[doj_idx]
+                    if isinstance(val, (datetime.datetime, datetime.date)):
+                        doj = val.strftime("%Y-%m-%d")
+                    else:
+                        val_str = str(val).strip()
+                        m = re.match(r'^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$', val_str)
+                        if m:
+                            doj = f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+                        else:
+                            doj = val_str
+
+                active = True
+                if active_idx is not None and active_idx < len(row) and row[active_idx] is not None:
+                    val_str = str(row[active_idx]).strip().lower()
+                    if val_str in ['no', 'false', '0', 'inactive', 'restricted']:
+                        active = False
+
+                update_fields = {
+                    "full_name": emp_name,
+                    "title": designation,
+                    "salary": salary,
+                    "date_of_joining": doj,
+                    "active": active,
+                    "approved": active,
+                    "restricted": not active,
+                    "is_employee_profile": True
+                }
+
+                user_doc = db.users.find_one({"username": emp_no})
+                if not user_doc:
+                    db.users.insert_one({
+                        "username": emp_no,
+                        "password_hash": generate_password_hash(emp_no),
+                        "role": "Employee",
+                        "email": f"{emp_no}@sannainnovations.com",
+                        "created_at": datetime.datetime.utcnow(),
+                        **update_fields
+                    })
+                else:
+                    db.users.update_one({"username": emp_no}, {"$set": update_fields})
+
+                count_users += 1
+
+                # Store month-specific designation and salary
+                db.monthly_payroll_profiles.update_one(
+                    {"username": emp_no, "year": year, "month": month},
+                    {"$set": {
+                        "title": designation,
+                        "salary": salary
+                    }},
+                    upsert=True
+                )
+
+                for d, col_idx in day_columns.items():
+                    if col_idx >= len(row):
+                        continue
+                    status_val = row[col_idx]
+                    if status_val is not None:
+                        status_val = str(status_val).strip().upper()
+                        if status_val in ['P', 'A', 'HD', 'CL', 'SL', 'LOP', 'H']:
+                            db.attendance.update_one(
+                                {"username": emp_no, "year": year, "month": month, "day": d},
+                                {"$set": {"status": status_val}},
+                                upsert=True
+                            )
+                            count_attendance += 1
+
+        print(f"Sync complete. Synchronized {count_users} employee rows and {count_attendance} attendance logs.")
+
+    except Exception as e:
+        print(f"Error during boot attendance sync: {e}")
+
+sync_attendance_on_boot()
 
 # Helper to serialize MongoDB documents (converting ObjectId to string 'id')
 def serialize(doc):
@@ -460,6 +664,547 @@ def delete_user(user_id):
         return jsonify({"error": f"Failed to remove user: {str(e)}"}), 500
 
     return jsonify({"message": f"User {target_user['full_name']} removed successfully!"})
+
+
+# ----------------- EMPLOYEE DIRECTORY & ATTENDANCE MATRIX ENDPOINTS -----------------
+
+@app.route('/api/employees', methods=['GET'])
+def get_employees():
+    user = get_logged_in_user()
+    if not user or user.get('role') not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden: Access restricted to Admin and Manager"}), 403
+
+    now = datetime.datetime.utcnow()
+    year = request.args.get('year', default=now.year, type=int)
+    month = request.args.get('month', default=now.month, type=int)
+
+    # Fetch users who are employee profiles (seeded from spreadsheet or manually added)
+    users_list = list(db.users.find({"is_employee_profile": True}))
+
+    # Sort alphabetically by username (places empsi01 first)
+    users_list.sort(key=lambda x: x['username'])
+
+    for u in users_list:
+        uname = u['username']
+        
+        # CL rolls over month-to-month. Earns 1 CL per month.
+        cl_allocated = float(month) * 1.0
+        cl_used = db.attendance.count_documents({
+            "username": uname,
+            "year": year,
+            "month": {"$lte": month},
+            "status": "CL"
+        })
+        cl_remaining = max(0.0, cl_allocated - float(cl_used))
+
+        # SL is 1 day per month and does NOT get forwarded.
+        sl_allocated = 1.0
+        sl_used = db.attendance.count_documents({
+            "username": uname,
+            "year": year,
+            "month": month,
+            "status": "SL"
+        })
+        sl_remaining = max(0.0, sl_allocated - float(sl_used))
+
+        u['cl_remaining'] = cl_remaining
+        u['sl_remaining'] = sl_remaining
+
+    return jsonify(serialize(users_list))
+
+
+@app.route('/api/employees/<username>', methods=['PUT'])
+def update_employee(username):
+    user = get_logged_in_user()
+    if not user or user.get('role') not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden: Access restricted to Admin and Manager"}), 403
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    target_user = db.users.find_one({"username": username.lower().strip()})
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Prevent deactivating other Managers or Admins if active status/details
+    if user['role'] == 'Manager' and target_user['role'] in ['Admin', 'Manager'] and target_user['username'] != user['username']:
+        return jsonify({"error": "Forbidden: Managers cannot update other Managers or Admins"}), 403
+
+    designation = data.get('designation')
+    salary = data.get('salary')
+    date_of_joining = data.get('date_of_joining')
+    active = data.get('active')
+
+    update_fields = {}
+    if designation is not None:
+        update_fields["title"] = str(designation).strip()
+    if salary is not None:
+        try:
+            update_fields["salary"] = float(salary)
+        except ValueError:
+            return jsonify({"error": "Invalid salary format"}), 400
+    if date_of_joining is not None:
+        update_fields["date_of_joining"] = str(date_of_joining).strip()
+    if active is not None:
+        is_active = bool(active)
+        update_fields["active"] = is_active
+        update_fields["approved"] = is_active
+        update_fields["restricted"] = not is_active
+
+    if update_fields:
+        db.users.update_one({"username": username.lower().strip()}, {"$set": update_fields})
+
+    return jsonify({"message": f"Employee {username} updated successfully!"})
+
+
+@app.route('/api/employees', methods=['POST'])
+def add_employee():
+    user = get_logged_in_user()
+    if not user or user.get('role') not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden: Access restricted to Admin and Manager"}), 403
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    username = str(data.get('username', '')).strip().lower()
+    fullname = str(data.get('fullname', '')).strip()
+    designation = str(data.get('designation', '')).strip()
+    salary_val = data.get('salary')
+    date_of_joining = str(data.get('date_of_joining', '')).strip()
+    active = bool(data.get('active', True))
+
+    if not username or not fullname or not designation or salary_val is None or not date_of_joining:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        salary = float(salary_val)
+    except ValueError:
+        return jsonify({"error": "Invalid salary format"}), 400
+
+    # Check if user already exists
+    existing_user = db.users.find_one({"username": username})
+    if existing_user:
+        return jsonify({"error": "Employee Code / Username already exists"}), 400
+
+    # Insert employee
+    db.users.insert_one({
+        "username": username,
+        "password_hash": generate_password_hash(username), # default password is username
+        "role": "Employee",
+        "email": f"{username}@sannainnovations.com",
+        "created_at": datetime.datetime.utcnow(),
+        "full_name": fullname,
+        "title": designation,
+        "salary": salary,
+        "date_of_joining": date_of_joining,
+        "active": active,
+        "approved": active,
+        "restricted": not active,
+        "is_employee_profile": True
+    })
+
+    # Ensure leave balances
+    ensure_leave_balances(username)
+
+    return jsonify({"message": f"Employee {fullname} added successfully!"})
+
+
+@app.route('/api/attendance/overview', methods=['GET'])
+def get_attendance_overview():
+    user = get_logged_in_user()
+    if not user or user.get('role') not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden: Access restricted to Admin and Manager"}), 403
+
+    year_str = request.args.get('year')
+    month_str = request.args.get('month')
+    if not year_str or not month_str:
+        return jsonify({"error": "Missing year or month parameters"}), 400
+
+    try:
+        year = int(year_str)
+        month = int(month_str)
+    except ValueError:
+        return jsonify({"error": "Invalid year or month format"}), 400
+
+    import calendar
+    # Calculate days in month
+    _, num_days = calendar.monthrange(year, month)
+
+    # Calculate default working days (excluding Sundays)
+    default_working_days = 0
+    for d in range(1, num_days + 1):
+        dt = datetime.date(year, month, d)
+        if dt.weekday() != 6:  # 6 is Sunday
+            default_working_days += 1
+
+    working_days_override_str = request.args.get('total_working_days')
+    total_working_days = default_working_days
+    if working_days_override_str:
+        try:
+            total_working_days = int(working_days_override_str)
+            if total_working_days <= 0:
+                total_working_days = default_working_days
+        except ValueError:
+            pass
+
+    # Fetch employees list (same sorting and filtering as GET /api/employees)
+    employees = list(db.users.find({"is_employee_profile": True}))
+    employees.sort(key=lambda x: x['username'])
+
+    # Fetch monthly payroll profiles
+    profiles_cursor = db.monthly_payroll_profiles.find({"year": year, "month": month})
+    monthly_profiles = {p['username']: p for p in profiles_cursor}
+
+    for emp in employees:
+        uname = emp['username']
+        m_profile = monthly_profiles.get(uname, {})
+        if 'title' in m_profile:
+            emp['title'] = m_profile['title']
+        if 'salary' in m_profile:
+            emp['salary'] = m_profile['salary']
+
+    # Fetch attendance logs
+    logs_cursor = db.attendance.find({"year": year, "month": month})
+    attendance_map = {} # username -> day -> status
+    for log in logs_cursor:
+        uname = log['username']
+        day = log['day']
+        status = log['status']
+        if uname not in attendance_map:
+            attendance_map[uname] = {}
+        attendance_map[uname][day] = status
+
+    summary = {}
+    for emp in employees:
+        uname = emp['username']
+        emp_logs = attendance_map.get(uname, {})
+        
+        # Count statuses
+        counts = {"P": 0, "A": 0, "HD": 0, "CL": 0, "SL": 0, "LOP": 0, "H": 0}
+        for d in range(1, num_days + 1):
+            status = emp_logs.get(d)
+            if status in counts:
+                counts[status] += 1
+
+        monthly_salary = emp.get('salary', 0.0)
+        daily_rate = 0.0
+        deductions = 0.0
+        net_payable = monthly_salary
+
+        if monthly_salary > 0:
+            daily_rate = monthly_salary / total_working_days
+            lop_days = counts["LOP"] + counts["A"]
+            deductions = daily_rate * lop_days
+            net_payable = max(0.0, monthly_salary - deductions)
+
+        summary[uname] = {
+            "P": counts["P"],
+            "A": counts["A"],
+            "HD": counts["HD"],
+            "CL": counts["CL"],
+            "SL": counts["SL"],
+            "H": counts["H"],
+            "LOP": counts["LOP"],
+            "daily_rate": round(daily_rate, 2),
+            "deductions": round(deductions, 2),
+            "net_payable": round(net_payable, 2)
+        }
+
+    return jsonify({
+        "employees": serialize(employees),
+        "attendance_matrix": attendance_map,
+        "summary": summary,
+        "days_in_month": num_days,
+        "total_working_days": total_working_days
+    })
+
+
+@app.route('/api/attendance', methods=['POST'])
+def update_attendance_cell():
+    user = get_logged_in_user()
+    if not user or user.get('role') not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden: Access restricted to Admin and Manager"}), 403
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    username = data.get('username')
+    year = data.get('year')
+    month = data.get('month')
+    day = data.get('day')
+    status = data.get('status')
+
+    if not username or year is None or month is None or day is None:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        year = int(year)
+        month = int(month)
+        day = int(day)
+    except ValueError:
+        return jsonify({"error": "Invalid numeric values"}), 400
+
+    status = str(status).strip().upper()
+    if status == "":
+        db.attendance.delete_one({"username": username.lower().strip(), "year": year, "month": month, "day": day})
+        return jsonify({"message": "Attendance cell cleared successfully!"})
+
+    if status not in ['P', 'A', 'HD', 'CL', 'SL', 'LOP', 'H']:
+        return jsonify({"error": "Invalid status value"}), 400
+
+    target_user = db.users.find_one({"username": username.lower().strip()})
+    if not target_user:
+        return jsonify({"error": "Target user not found"}), 404
+
+    db.attendance.update_one(
+        {"username": username.lower().strip(), "year": year, "month": month, "day": day},
+        {"$set": {"status": status}},
+        upsert=True
+    )
+
+    return jsonify({"message": "Attendance cell updated successfully!"})
+
+
+@app.route('/api/attendance/export', methods=['GET'])
+def export_attendance_to_excel():
+    user = get_logged_in_user()
+    if not user or user.get('role') not in ['Admin', 'Manager']:
+        return jsonify({"error": "Forbidden: Access restricted to Admin and Manager"}), 403
+
+    year_str = request.args.get('year')
+    month_str = request.args.get('month')
+    if not year_str or not month_str:
+        return jsonify({"error": "Missing year or month parameters"}), 400
+
+    try:
+        year = int(year_str)
+        month = int(month_str)
+    except ValueError:
+        return jsonify({"error": "Invalid year or month format"}), 400
+
+    import calendar
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    from flask import send_file
+
+    _, num_days = calendar.monthrange(year, month)
+
+    # Calculate default working days (excluding Sundays)
+    default_working_days = 0
+    for d in range(1, num_days + 1):
+        dt = datetime.date(year, month, d)
+        if dt.weekday() != 6:  # 6 is Sunday
+            default_working_days += 1
+
+    working_days_override_str = request.args.get('total_working_days')
+    total_working_days = default_working_days
+    if working_days_override_str:
+        try:
+            total_working_days = int(working_days_override_str)
+            if total_working_days <= 0:
+                total_working_days = default_working_days
+        except ValueError:
+            pass
+
+    # Fetch employees list
+    employees = list(db.users.find({"is_employee_profile": True}))
+    employees.sort(key=lambda x: x['username'])
+
+    # Fetch monthly payroll profiles
+    profiles_cursor = db.monthly_payroll_profiles.find({"year": year, "month": month})
+    monthly_profiles = {p['username']: p for p in profiles_cursor}
+
+    for emp in employees:
+        uname = emp['username']
+        m_profile = monthly_profiles.get(uname, {})
+        if 'title' in m_profile:
+            emp['title'] = m_profile['title']
+        if 'salary' in m_profile:
+            emp['salary'] = m_profile['salary']
+
+    # Fetch attendance logs
+    logs_cursor = db.attendance.find({"year": year, "month": month})
+    attendance_map = {} # username -> day -> status
+    for log in logs_cursor:
+        uname = log['username']
+        day = log['day']
+        status = log['status']
+        if uname not in attendance_map:
+            attendance_map[uname] = {}
+        attendance_map[uname][day] = status
+
+    # Create Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Attendance_{calendar.month_abbr[month]}_{year}"
+
+    # Set gridlines visible
+    ws.views.sheetView[0].showGridLines = True
+
+    # Colors
+    header_fill = PatternFill(start_color="1E1B4B", end_color="1E1B4B", fill_type="solid") # Dark indigo
+    zebra_fill = PatternFill(start_color="F9FAFB", end_color="F9FAFB", fill_type="solid") # Light grey
+    white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+    
+    # Fonts
+    header_font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
+    data_font = Font(name="Arial", size=10)
+    bold_font = Font(name="Arial", size=10, bold=True)
+    title_font = Font(name="Arial", size=14, bold=True, color="1E1B4B")
+    subtitle_font = Font(name="Arial", size=10, italic=True)
+
+    # Borders
+    thin_border = Border(
+        left=Side(style='thin', color="E4E4E7"),
+        right=Side(style='thin', color="E4E4E7"),
+        top=Side(style='thin', color="E4E4E7"),
+        bottom=Side(style='thin', color="E4E4E7")
+    )
+
+    # Alignments
+    center_align = Alignment(horizontal="center", vertical="center")
+    left_align = Alignment(horizontal="left", vertical="center")
+    right_align = Alignment(horizontal="right", vertical="center")
+
+    # Title Block
+    month_name = calendar.month_name[month]
+    ws.cell(row=1, column=1, value=f"Sanna Innovations - Attendance & Payroll Matrix").font = title_font
+    ws.cell(row=2, column=1, value=f"Period: {month_name} {year} | Total Working Days: {total_working_days}").font = subtitle_font
+    
+    # Row 4: Column Headers
+    headers = [
+        "Employee Code", "Employee Name", "Designation", "Monthly Salary"
+    ]
+    for d in range(1, num_days + 1):
+        headers.append(f"Day {d}")
+        
+    headers.extend([
+        "Presents (P)", "Absents (A)", "Half Days (HD)", "Casual Leaves (CL)", "Sick Leaves (SL)", "Holidays (H)", "LOP Days", "LOP Deduction", "Net Payable"
+    ])
+
+    for col_num, header_title in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col_num, value=header_title)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    # Populate Data
+    start_row = 5
+    for idx, emp in enumerate(employees):
+        row_num = start_row + idx
+        uname = emp['username']
+        emp_logs = attendance_map.get(uname, {})
+        
+        # Zebra striping
+        row_fill = zebra_fill if idx % 2 == 1 else white_fill
+
+        ws.cell(row=row_num, column=1, value=uname.upper()).alignment = center_align
+        ws.cell(row=row_num, column=2, value=emp['full_name']).alignment = left_align
+        ws.cell(row=row_num, column=3, value=emp.get('title', 'Employee')).alignment = left_align
+        
+        # Monthly Salary
+        sal_cell = ws.cell(row=row_num, column=4, value=emp.get('salary', 0.0))
+        sal_cell.alignment = right_align
+        sal_cell.number_format = '[$₹-4009] #,##0.00'
+
+        # Set borders & fonts for first 4 cells
+        for c in range(1, 5):
+            ws.cell(row=row_num, column=c).font = data_font
+            ws.cell(row=row_num, column=c).border = thin_border
+            ws.cell(row=row_num, column=c).fill = row_fill
+
+        # Day columns (Col 5 to Col 5 + num_days - 1)
+        counts = {"P": 0, "A": 0, "HD": 0, "CL": 0, "SL": 0, "LOP": 0, "H": 0}
+        for d in range(1, num_days + 1):
+            status = emp_logs.get(d)
+            col_num = 4 + d
+            cell = ws.cell(row=row_num, column=col_num, value=status if status else None)
+            cell.font = data_font
+            cell.alignment = center_align
+            cell.border = thin_border
+            cell.fill = row_fill
+            
+            if status in counts:
+                counts[status] += 1
+
+        # Summary columns
+        sum_cols_start = 4 + num_days + 1
+        summary_values = [
+            counts["P"], counts["A"], counts["HD"], counts["CL"], counts["SL"], counts["H"],
+            counts["LOP"] + counts["A"]
+        ]
+        
+        for c_offset, val in enumerate(summary_values):
+            col_num = sum_cols_start + c_offset
+            cell = ws.cell(row=row_num, column=col_num, value=val)
+            cell.font = data_font
+            cell.alignment = center_align
+            cell.border = thin_border
+            cell.fill = row_fill
+
+        # LOP Deduction & Net Payable Formulas
+        salary_cell_coord = f"D{row_num}"
+        lop_days_cell_coord = f"{get_column_letter(sum_cols_start + 6)}{row_num}" # LOP Days column
+        
+        lop_ded_col_letter = get_column_letter(sum_cols_start + 7)
+        
+        # LOP Deduction formula: = (Salary / working_days) * LOP_days
+        lop_ded_formula = f"=IF({salary_cell_coord}>0, ({salary_cell_coord}/{total_working_days})*{lop_days_cell_coord}, 0)"
+        lop_ded_cell = ws.cell(row=row_num, column=sum_cols_start + 7, value=lop_ded_formula)
+        lop_ded_cell.alignment = right_align
+        lop_ded_cell.number_format = '[$₹-4009] #,##0.00'
+        lop_ded_cell.font = data_font
+        lop_ded_cell.border = thin_border
+        lop_ded_cell.fill = row_fill
+
+        # Net Payable formula: = MAX(0, Salary - LOP Deduction)
+        net_pay_formula = f"=MAX(0, {salary_cell_coord}-{lop_ded_col_letter}{row_num})"
+        net_pay_cell = ws.cell(row=row_num, column=sum_cols_start + 8, value=net_pay_formula)
+        net_pay_cell.alignment = right_align
+        net_pay_cell.number_format = '[$₹-4009] #,##0.00'
+        net_pay_cell.font = bold_font
+        net_pay_cell.border = thin_border
+        net_pay_cell.fill = row_fill
+
+    # Auto-adjust column widths
+    for col in ws.columns:
+        max_len = 0
+        col_letter = get_column_letter(col[0].column)
+        
+        # Don't auto-fit day columns to keep them compact (58px is approx width 6 in openpyxl)
+        is_day_col = False
+        if col[0].column > 4 and col[0].column <= (4 + num_days):
+            is_day_col = True
+            
+        if is_day_col:
+            ws.column_dimensions[col_letter].width = 6
+        else:
+            for cell in col:
+                if cell.row < 4:  # Skip title row
+                    continue
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = max(max_len + 3, 10)
+
+    # Save to buffer and stream back
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    
+    file_month_name = calendar.month_name[month]
+    filename = f"Attendance_Payroll_Matrix_{file_month_name}_{year}.xlsx"
+    return send_file(
+        out,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename
+    )
 
 
 # ----------------- DAILY LOGS ROUTES (RBAC ENFORCED) -----------------
