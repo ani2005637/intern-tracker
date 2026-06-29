@@ -357,9 +357,10 @@ def signup():
     role = data.get('role', 'Intern')  # 'Admin', 'Manager', 'Employee', 'Intern'
     email = data.get('email', '').strip()
     title = data.get('title', '').strip()
+    employee_id = data.get('employee_id', '').strip()
 
     if not username or not password or not full_name or not role or not email or not title:
-        return jsonify({"error": "All fields are required"}), 400
+        return jsonify({"error": "All fields are required (except Employee ID)"}), 400
 
     if role not in ['Admin', 'Manager', 'Employee', 'Intern']:
         return jsonify({"error": "Invalid role specified"}), 400
@@ -378,6 +379,7 @@ def signup():
             "role": role,
             "email": email,
             "title": title,
+            "employee_id": employee_id,
             "approved": False,
             "created_at": datetime.datetime.utcnow()
         })
@@ -417,9 +419,10 @@ def create_user_by_supervisor():
     role = data.get('role', '').strip()
     email = data.get('email', '').strip()
     title = data.get('title', '').strip()
+    employee_id = data.get('employee_id', '').strip()
 
     if not username or not password or not full_name or not role or not email or not title:
-        return jsonify({"error": "All fields are required"}), 400
+        return jsonify({"error": "All fields are required (except Employee ID)"}), 400
 
     if role not in ['Admin', 'Manager', 'Employee', 'Intern', 'Guest']:
         return jsonify({"error": "Invalid role specified"}), 400
@@ -442,6 +445,7 @@ def create_user_by_supervisor():
             "role": role,
             "email": email,
             "title": title,
+            "employee_id": employee_id,
             "approved": True, # Pre-approved since created by supervisor
             "restricted": False,
             "created_at": datetime.datetime.utcnow()
@@ -510,7 +514,8 @@ def login():
         "user": {
             "username": user['username'],
             "full_name": user['full_name'],
-            "role": user['role']
+            "role": user['role'],
+            "employee_id": user.get('employee_id', '')
         }
     })
 
@@ -553,9 +558,50 @@ def current_user():
         "full_name": user['full_name'],
         "role": user['role'],
         "email": user.get('email', ''),
+        "employee_id": user.get('employee_id', ''),
         "title": user.get('title', '')
     })
 
+
+
+@app.route('/users/<username>/profile', methods=['PUT'])
+def update_user_profile(username):
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user['username'].lower() != username.lower() and user['role'] != 'Admin':
+        return jsonify({"error": "Forbidden: You can only edit your own profile"}), 403
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    update_fields = {}
+    if 'full_name' in data and data['full_name'].strip():
+        update_fields['full_name'] = data['full_name'].strip()
+    if 'email' in data and data['email'].strip():
+        update_fields['email'] = data['email'].strip()
+    if 'employee_id' in data:
+        update_fields['employee_id'] = data['employee_id'].strip()
+    if 'password' in data and data['password']:
+        update_fields['password_hash'] = generate_password_hash(data['password'])
+
+    if not update_fields:
+        return jsonify({"error": "No fields to update"}), 400
+
+    try:
+        db.users.update_one({"username": username}, {"$set": update_fields})
+        if 'full_name' in update_fields:
+            new_name = update_fields['full_name']
+            db.logs.update_many({"intern_name": username}, {"$set": {"intern_fullname": new_name}})
+            db.tasks.update_many({"intern_name": username}, {"$set": {"intern_fullname": new_name}})
+            db.leave_requests.update_many({"username": username}, {"$set": {"full_name": new_name}})
+            db.session_logs.update_many({"username": username}, {"$set": {"full_name": new_name}})
+
+        return jsonify({"message": "Profile updated successfully"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to update profile: {str(e)}"}), 500
 
 
 # Fetch users list dynamically (useful for task assignment dropdowns)
@@ -1970,6 +2016,61 @@ def get_session_logs():
         return jsonify(serialize(logs))
     except Exception as e:
         return jsonify({"error": f"Failed to fetch session logs: {str(e)}"}), 500
+
+
+@app.route('/session_logs/edit', methods=['PUT'])
+def edit_session_log():
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user['role'] != 'Admin':
+        return jsonify({"error": "Forbidden: Only Admins can edit session logs"}), 403
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    target_username = data.get('username')
+    target_date = data.get('date')
+    new_login = data.get('login_time')
+    new_logout = data.get('logout_time')
+
+    if not target_username or not target_date or not new_login or not new_logout:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        try:
+            dt_login = datetime.datetime.fromisoformat(new_login.replace('Z', '+00:00')).replace(tzinfo=None)
+            dt_logout = datetime.datetime.fromisoformat(new_logout.replace('Z', '+00:00')).replace(tzinfo=None)
+        except ValueError:
+            return jsonify({"error": "Invalid date format"}), 400
+
+        start_of_day = dt_login.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = start_of_day + datetime.timedelta(days=1)
+        
+        db.session_logs.delete_many({
+            "username": target_username,
+            "login_time": {"$gte": start_of_day, "$lt": end_of_day}
+        })
+        
+        target_user = db.users.find_one({"username": target_username})
+        full_name = target_user['full_name'] if target_user else target_username
+        role = target_user['role'] if target_user else "Intern"
+
+        db.session_logs.insert_one({
+            "username": target_username,
+            "full_name": full_name,
+            "role": role,
+            "login_time": dt_login,
+            "logout_time": dt_logout
+        })
+
+        return jsonify({"message": "Session log updated successfully"})
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to update session log: {str(e)}"}), 500
+
 
 
 # ----------------- COLLABORATION: MEDIA UPLOAD -----------------
