@@ -4631,6 +4631,12 @@
                     filteredTasks = filteredTasks.filter(t => t.intern_name && t.intern_name.toLowerCase().trim() === userVal.toLowerCase().trim());
                     filteredSkills = filteredSkills.filter(s => s.intern_name && s.intern_name.toLowerCase().trim() === userVal.toLowerCase().trim());
                 }
+            } else {
+                // Employees and Interns should only see their own personal statistics on their dashboard
+                const myUname = currentUser.username.toLowerCase().trim();
+                filteredLogs = filteredLogs.filter(l => l.intern_name && l.intern_name.toLowerCase().trim() === myUname);
+                filteredTasks = filteredTasks.filter(t => t.intern_name && t.intern_name.toLowerCase().trim() === myUname);
+                filteredSkills = filteredSkills.filter(s => s.intern_name && s.intern_name.toLowerCase().trim() === myUname);
             }
 
             // 1. Calculate KPIs
