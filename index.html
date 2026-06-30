@@ -2098,6 +2098,65 @@
 
             <!-- TAB: ACTIVITY LOGS (ADMIN & MANAGER) -->
             <section id="activity-logs" class="tab-content">
+                <!-- Add Task Panel (Moved here) -->
+                <div class="panel" id="task-assign-panel" style="margin-top: 20px;">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-circle-plus"></i>
+                        <span>Create Project Task</span>
+                    </div>
+                    <form id="taskForm">
+                        <div class="form-group">
+                            <label for="task_intern_name">Assign To User</label>
+                            <select id="task_intern_name" required>
+                                <!-- Populated dynamically based on role -->
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="task_name">Task Title</label>
+                            <input type="text" id="task_name" placeholder="e.g. Design user profiles screen" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="task_category">Category</label>
+                                <select id="task_category">
+                                    <option value="Frontend">Frontend Dev</option>
+                                    <option value="Backend">Backend API</option>
+                                    <option value="Database">Database Schema</option>
+                                    <option value="DevOps">Deployment / DevOps</option>
+                                    <option value="Documentation">Documentation</option>
+                                    <option value="Design">UI/UX Design</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="task_priority">Priority</label>
+                                <select id="task_priority">
+                                    <option value="High">High</option>
+                                    <option value="Medium" selected>Medium</option>
+                                    <option value="Low">Low</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="task_due">Due Date</label>
+                                <input type="date" id="task_due">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="task_notes">Task Description</label>
+                            <textarea id="task_notes" rows="3" placeholder="Provide extra details for this task objective..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-submit">
+                            <i class="fa-solid fa-list-check"></i> Assign Task
+                        </button>
+                    </form>
+                </div>
+
                 <div class="panel">
                     <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%;">
                         <div style="display: flex; align-items: center; gap: 8px;">
@@ -2161,64 +2220,7 @@
                     </div>
                 </div>
 
-                <!-- Add Task Panel (Moved here) -->
-                <div class="panel" id="task-assign-panel" style="margin-top: 20px;">
-                    <div class="panel-title">
-                        <i class="fa-solid fa-circle-plus"></i>
-                        <span>Create Project Task</span>
-                    </div>
-                    <form id="taskForm">
-                        <div class="form-group">
-                            <label for="task_intern_name">Assign To User</label>
-                            <select id="task_intern_name" required>
-                                <!-- Populated dynamically based on role -->
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="task_name">Task Title</label>
-                            <input type="text" id="task_name" placeholder="e.g. Design user profiles screen" required>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="task_category">Category</label>
-                                <select id="task_category">
-                                    <option value="Frontend">Frontend Dev</option>
-                                    <option value="Backend">Backend API</option>
-                                    <option value="Database">Database Schema</option>
-                                    <option value="DevOps">Deployment / DevOps</option>
-                                    <option value="Documentation">Documentation</option>
-                                    <option value="Design">UI/UX Design</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="task_priority">Priority</label>
-                                <select id="task_priority">
-                                    <option value="High">High</option>
-                                    <option value="Medium" selected>Medium</option>
-                                    <option value="Low">Low</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="task_due">Due Date</label>
-                                <input type="date" id="task_due">
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="task_notes">Task Description</label>
-                            <textarea id="task_notes" rows="3" placeholder="Provide extra details for this task objective..."></textarea>
-                        </div>
-
-                        <button type="submit" class="btn-submit">
-                            <i class="fa-solid fa-list-check"></i> Assign Task
-                        </button>
-                    </form>
-                </div>
+                
             </section>
 
             <!-- TAB: TASK TRACKER -->
@@ -4078,7 +4080,7 @@
                 const activityLogsSection = document.getElementById('activity-logs');
                 const assignPanel = document.getElementById('task-assign-panel');
                 if (activityLogsSection && assignPanel) {
-                    activityLogsSection.appendChild(assignPanel);
+                    activityLogsSection.prepend(assignPanel);
                     assignPanel.style.display = 'block';
                     assignPanel.style.marginTop = '20px';
                 }
@@ -4114,7 +4116,7 @@
                 const activityLogsSection = document.getElementById('activity-logs');
                 const assignPanel = document.getElementById('task-assign-panel');
                 if (activityLogsSection && assignPanel) {
-                    activityLogsSection.appendChild(assignPanel);
+                    activityLogsSection.prepend(assignPanel);
                     assignPanel.style.display = 'block';
                     assignPanel.style.marginTop = '20px';
                 }
