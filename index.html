@@ -5849,11 +5849,20 @@
         // Action Helpers: Update task status
         async function updateTaskStatus(taskId, status) {
             try {
+                let percent = undefined;
+                if (status === 'Not Started') {
+                    percent = 0;
+                } else if (status === 'In Progress') {
+                    percent = 50;
+                } else if (status === 'Completed') {
+                    percent = 100;
+                }
+
                 const res = await apiFetch(`/tasks/${taskId}`, {
                     method: 'PUT',
                     body: {
                         status: status,
-                        percent_done: status === 'Completed' ? 100 : undefined
+                        percent_done: percent
                     }
                 });
                 if (res.ok) {
