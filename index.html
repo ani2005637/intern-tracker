@@ -692,6 +692,7 @@
             padding: 14px 18px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.03);
             color: var(--text-main);
+            vertical-align: top;
         }
 
         tr:hover td {
@@ -2221,13 +2222,13 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>User</th>
-                                    <th>Date</th>
-                                    <th>In</th>
-                                    <th>Out</th>
-                                    <th>Hours</th>
-                                    <th>Tasks Completed</th>
-                                    <th>Deliv?</th>
+                                    <th style="white-space: nowrap; width: 140px;">User</th>
+                                    <th style="white-space: nowrap; width: 110px;">Date</th>
+                                    <th style="white-space: nowrap; width: 80px;">In</th>
+                                    <th style="white-space: nowrap; width: 80px;">Out</th>
+                                    <th style="white-space: nowrap; width: 100px;">Hours</th>
+                                    <th style="min-width: 350px;">Tasks Completed</th>
+                                    <th style="white-space: nowrap; width: 80px;">Deliv?</th>
                                     <th style="width: 100px; text-align: center;">Actions</th>
                                 </tr>
                             </thead>
@@ -5174,7 +5175,7 @@
                     <td>${log.check_out || '-'}</td>
                     <td style="font-weight:700; min-width: 140px;">${hoursDisplay}</td>
                     <td>
-                        <strong>${escapeHTML(log.tasks_completed)}</strong>
+                        <div style="white-space: pre-wrap; line-height: 1.5; font-size: 13px; color: var(--text-main); font-weight: 400; max-width: 450px;">${escapeHTML(log.tasks_completed)}</div>
                         ${log.blockers && log.blockers !== 'None' && log.blockers !== '' ? `<div style="color:var(--danger); font-size:12px; margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(log.blockers)}</div>` : ''}
                     </td>
                     <td><span class="badge ${log.deliverable_completed === 'Yes' ? 'badge-success' : 'badge-warning'}">${log.deliverable_completed || 'No'}</span></td>
@@ -5601,7 +5602,7 @@
                     <td>${log.check_out || '-'}</td>
                     <td style="font-weight:700; min-width: 140px;">${hoursDisplay}</td>
                     <td>
-                        <strong>${escapeHTML(log.tasks_completed)}</strong>
+                        <div style="white-space: pre-wrap; line-height: 1.5; font-size: 13px; color: var(--text-main); font-weight: 400; max-width: 450px;">${escapeHTML(log.tasks_completed)}</div>
                         ${log.blockers && log.blockers !== 'None' && log.blockers !== '' ? `<div style="color:var(--danger); font-size:12px; margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHTML(log.blockers)}</div>` : ''}
                     </td>
                     <td><span class="badge ${log.deliverable_completed === 'Yes' ? 'badge-success' : 'badge-warning'}">${log.deliverable_completed || 'No'}</span></td>
