@@ -5176,6 +5176,9 @@
             const btnInterns = document.getElementById('btn-view-interns');
             const btnSessions = document.getElementById('btn-view-sessions');
             
+            const filterWork = document.getElementById('filter-work-logs-container');
+            const filterSession = document.getElementById('filter-session-logs-container');
+            
             if (btnEmployees && btnInterns && btnSessions) {
                 btnEmployees.className = 'btn btn-secondary btn-sm';
                 btnInterns.className = 'btn btn-secondary btn-sm';
@@ -5183,10 +5186,16 @@
 
                 if (view === 'employees') {
                     btnEmployees.className = 'btn btn-primary btn-sm';
+                    if (filterWork) filterWork.style.display = 'flex';
+                    if (filterSession) filterSession.style.display = 'none';
                 } else if (view === 'interns') {
                     btnInterns.className = 'btn btn-primary btn-sm';
+                    if (filterWork) filterWork.style.display = 'flex';
+                    if (filterSession) filterSession.style.display = 'none';
                 } else if (view === 'sessions') {
                     btnSessions.className = 'btn btn-primary btn-sm';
+                    if (filterWork) filterWork.style.display = 'none';
+                    if (filterSession) filterSession.style.display = 'flex';
                 }
             }
             renderActivityLogs();
