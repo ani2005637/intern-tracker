@@ -8896,14 +8896,38 @@
                         
                         let submissionHtml = '';
                         if (t.submissions && Object.keys(t.submissions).length > 0) {
-                            submissionHtml = `<div style="font-size:12px; margin-top:8px; display:flex; flex-direction:column; gap:6px;">` +
-                                Object.entries(t.submissions).map(([label, link]) => `
-                                    <div style="display:flex; align-items:center; gap:6px;">
-                                        <i class="fa-solid fa-link" style="color:var(--primary); font-size:11px;"></i>
-                                        <span style="color:var(--text-muted); font-weight:500;">${escapeHTML(label)}:</span>
-                                        <a href="${link}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none;">View Document</a>
-                                    </div>
-                                `).join('') + `</div>`;
+                            submissionHtml = `<div style="font-size:12px; margin-top:8px; display:flex; flex-direction:column; gap:8px;">` +
+                                Object.entries(t.submissions).map(([label, fileObj]) => {
+                                    if (fileObj && typeof fileObj === 'object' && fileObj.data) {
+                                        const isImage = fileObj.data.startsWith('data:image/');
+                                        let filePreview = '';
+                                        if (isImage) {
+                                            filePreview = `
+                                                <div style="margin-top:6px;">
+                                                    <img src="${fileObj.data}" style="max-width:120px; max-height:80px; border-radius:6px; border:1px solid var(--border-color); cursor:pointer;" onclick="viewOnboardingImageFull('${fileObj.data}', '${escapeHTML(fileObj.filename)}')">
+                                                </div>
+                                            `;
+                                        }
+                                        return `
+                                            <div style="display:flex; flex-direction:column; gap:4px;">
+                                                <div style="display:flex; align-items:center; gap:6px;">
+                                                    <i class="${isImage ? 'fa-solid fa-image' : 'fa-solid fa-file-pdf'}" style="color:var(--primary); font-size:11px;"></i>
+                                                    <span style="color:var(--text-muted); font-weight:500;">${escapeHTML(label)}:</span>
+                                                    <a href="${fileObj.data}" download="${fileObj.filename}" style="color:var(--primary); font-weight:600; text-decoration:none;">Download (${escapeHTML(fileObj.filename)})</a>
+                                                </div>
+                                                ${filePreview}
+                                            </div>
+                                        `;
+                                    } else {
+                                        return `
+                                            <div style="display:flex; align-items:center; gap:6px;">
+                                                <i class="fa-solid fa-link" style="color:var(--primary); font-size:11px;"></i>
+                                                <span style="color:var(--text-muted); font-weight:500;">${escapeHTML(label)}:</span>
+                                                <a href="${fileObj}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none;">View Link</a>
+                                            </div>
+                                        `;
+                                    }
+                                }).join('') + `</div>`;
                         }
                         
                         let notesHtml = '';
@@ -8982,14 +9006,28 @@
                 
                 let submissionHtml = '';
                 if (t.submissions && Object.keys(t.submissions).length > 0) {
-                    submissionHtml = `<div style="font-size:11px; margin-top:8px; display:flex; flex-direction:column; gap:4px;">` +
-                        Object.entries(t.submissions).map(([label, link]) => `
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <i class="fa-solid fa-link" style="color:var(--primary);"></i>
-                                <span style="color:var(--text-muted); font-weight:500;">${escapeHTML(label)}:</span>
-                                <a href="${link}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none;">View</a>
-                            </div>
-                        `).join('') + `</div>`;
+                    submissionHtml = `<div style="font-size:11px; margin-top:8px; display:flex; flex-direction:column; gap:6px;">` +
+                        Object.entries(t.submissions).map(([label, fileObj]) => {
+                            if (fileObj && typeof fileObj === 'object' && fileObj.data) {
+                                return `
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <i class="fa-solid fa-file-arrow-down" style="color:var(--primary);"></i>
+                                        <span style="color:var(--text-muted); font-weight:500;">${escapeHTML(label)}:</span>
+                                        <a href="${fileObj.data}" download="${fileObj.filename}" style="color:var(--primary); font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                                            Download (${escapeHTML(fileObj.filename)})
+                                        </a>
+                                    </div>
+                                `;
+                            } else {
+                                return `
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <i class="fa-solid fa-link" style="color:var(--primary);"></i>
+                                        <span style="color:var(--text-muted); font-weight:500;">${escapeHTML(label)}:</span>
+                                        <a href="${fileObj}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none;">View Link</a>
+                                    </div>
+                                `;
+                            }
+                        }).join('') + `</div>`;
                 }
                 
                 let notesHtml = '';
@@ -9041,8 +9079,8 @@
                     div.className = 'form-group';
                     div.style.marginBottom = '12px';
                     div.innerHTML = `
-                        <label for="ob_sub_${doc}" style="font-size:12px; margin-bottom:4px; display:block;">${escapeHTML(doc)} Link (URL)</label>
-                        <input type="url" id="ob_sub_${doc}" class="ob-doc-input" data-doc="${escapeHTML(doc)}" placeholder="Paste URL link for ${escapeHTML(doc)}" required style="width:100%;">
+                        <label for="ob_sub_${doc}" style="font-size:12px; margin-bottom:4px; display:block; font-weight:600;">${escapeHTML(doc)} (JPG, PNG, PDF)</label>
+                        <input type="file" id="ob_sub_${doc}" class="ob-doc-file-input" data-doc="${escapeHTML(doc)}" accept="image/jpeg,image/png,application/pdf" required style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:8px; background:rgba(255,255,255,0.02);">
                     `;
                     container.appendChild(div);
                 });
@@ -9051,8 +9089,8 @@
                 div.className = 'form-group';
                 div.style.marginBottom = '12px';
                 div.innerHTML = `
-                    <label for="ob_submission_link">Document / Submission Link (URL)</label>
-                    <input type="url" id="ob_submission_link" class="ob-doc-input" data-doc="Submission Document" placeholder="e.g. Google Drive folder or GitHub URL" required style="width:100%;">
+                    <label for="ob_submission_link" style="font-size:12px; margin-bottom:4px; display:block; font-weight:600;">Submission Document (JPG, PNG, PDF)</label>
+                    <input type="file" id="ob_submission_link" class="ob-doc-file-input" data-doc="Submission Document" accept="image/jpeg,image/png,application/pdf" required style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:8px; background:rgba(255,255,255,0.02);">
                 `;
                 container.appendChild(div);
             }
@@ -9069,14 +9107,38 @@
             const id = document.getElementById('onboarding-complete-task-id').value;
             const notes = document.getElementById('ob_notes').value;
 
+            const fileInputs = document.querySelectorAll('.ob-doc-file-input');
+            const promises = [];
             const submissions = {};
-            const docInputs = document.querySelectorAll('.ob-doc-input');
-            docInputs.forEach(input => {
+
+            fileInputs.forEach(input => {
                 const docLabel = input.getAttribute('data-doc');
-                submissions[docLabel] = input.value.strip ? input.value.strip() : input.value;
+                const file = input.files[0];
+                if (file) {
+                    const promise = new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            submissions[docLabel] = {
+                                filename: file.name,
+                                data: evt.target.result
+                            };
+                            resolve();
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    promises.push(promise);
+                }
             });
 
+            // Show spinner on submit button
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const origHtml = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+
             try {
+                await Promise.all(promises);
+
                 const res = await apiFetch(`/onboarding/my-checklist/${id}`, {
                     method: 'PUT',
                     body: {
@@ -9086,7 +9148,7 @@
                     }
                 });
                 if (res.ok) {
-                    showToast("Task completed successfully!", "success");
+                    showToast("Documents uploaded and completed successfully!", "success");
                     closeOnboardingCompleteModal();
                     loadOnboardingChecklist();
                 } else {
@@ -9094,7 +9156,10 @@
                     showToast(data.error || "Failed to update task", "error");
                 }
             } catch (err) {
-                showToast("Failed to update task", "error");
+                showToast("Failed to upload files", "error");
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origHtml;
             }
         }
 
@@ -9114,6 +9179,26 @@
             } catch (err) {
                 showToast("Failed to update task", "error");
             }
+        }
+
+        
+        function viewOnboardingImageFull(dataUrl, filename) {
+            const w = window.open();
+            w.document.title = filename;
+            w.document.body.style.margin = '0';
+            w.document.body.style.background = '#0f172a';
+            w.document.body.style.display = 'flex';
+            w.document.body.style.alignItems = 'center';
+            w.document.body.style.justifyContent = 'center';
+            w.document.body.style.height = '100vh';
+            
+            const img = w.document.createElement('img');
+            img.src = dataUrl;
+            img.style.maxWidth = '95%';
+            img.style.maxHeight = '95%';
+            img.style.borderRadius = '8px';
+            img.style.boxShadow = '0 10px 40px rgba(0,0,0,0.5)';
+            w.document.body.appendChild(img);
         }
 
         </script>
