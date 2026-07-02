@@ -656,6 +656,23 @@
             width: 100%;
         }
 
+        /* Sticky headers for scrollable tables */
+        .table-responsive-scroll {
+            max-height: 420px;
+            overflow-y: auto;
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            padding-right: 4px;
+            position: relative;
+        }
+        .table-responsive-scroll th {
+            position: sticky;
+            top: -1px;
+            background: #15151a; /* Matches card-bg color */
+            z-index: 10;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -1950,7 +1967,7 @@
                             <i class="fa-solid fa-user-plus"></i> Add New Member
                         </button>
                     </div>
-                    <div class="table-responsive">
+                    <div class="table-responsive-scroll">
                         <table>
                             <thead>
                                 <tr>
@@ -2929,7 +2946,7 @@
                             <i class="fa-solid fa-chart-line"></i>
                             <span>Employee Onboarding Progress</span>
                         </div>
-                        <div style="overflow-x: auto;">
+                        <div class="table-responsive-scroll">
                             <table class="data-table" style="width: 100%;">
                                 <thead>
                                     <tr>
