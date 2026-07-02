@@ -128,6 +128,8 @@
                     fetchDMUsersList();
                 } else if (tabId === 'leaves') {
                     loadLeavesData();
+                } else if (tabId === 'hosting-details') {
+                    loadHostingDetails();
                 } else if (tabId === 'employees-directory') {
                     loadEmployeesDirectory();
                 } else if (tabId === 'attendance-matrix') {
@@ -754,6 +756,7 @@
                 document.getElementById('nav-activity-logs').style.display = 'none';
                 document.getElementById('nav-employees-directory').style.display = 'none';
                 document.getElementById('nav-attendance-matrix').style.display = 'none';
+                document.getElementById('nav-hosting-details').style.display = 'none';
                 
                 // Move task creation panel to Tasks page & display it
                 const taskGrid = document.querySelector('#tasks .grid-2');
@@ -790,12 +793,13 @@
                 document.getElementById('nav-activity-logs').style.display = 'block';
                 document.getElementById('nav-employees-directory').style.display = 'block';
                 document.getElementById('nav-attendance-matrix').style.display = 'block';
+                document.getElementById('nav-hosting-details').style.display = 'none';
 
                 // Move task assignment panel to Activity Logs page & display it
                 const activityLogsSection = document.getElementById('activity-logs');
                 const assignPanel = document.getElementById('task-assign-panel');
                 if (activityLogsSection && assignPanel) {
-                    activityLogsSection.appendChild(assignPanel);
+                    activityLogsSection.prepend(assignPanel);
                     assignPanel.style.display = 'block';
                     assignPanel.style.marginTop = '20px';
                 }
@@ -825,12 +829,13 @@
                 document.getElementById('nav-activity-logs').style.display = 'block';
                 document.getElementById('nav-employees-directory').style.display = 'block';
                 document.getElementById('nav-attendance-matrix').style.display = 'block';
+                document.getElementById('nav-hosting-details').style.display = 'block';
 
                 // Move task assignment panel back to Activity Logs page & display it
                 const activityLogsSection = document.getElementById('activity-logs');
                 const assignPanel = document.getElementById('task-assign-panel');
                 if (activityLogsSection && assignPanel) {
-                    activityLogsSection.appendChild(assignPanel);
+                    activityLogsSection.prepend(assignPanel);
                     assignPanel.style.display = 'block';
                     assignPanel.style.marginTop = '20px';
                 }
@@ -1340,6 +1345,12 @@
                     filteredTasks = filteredTasks.filter(t => t.intern_name && t.intern_name.toLowerCase().trim() === userVal.toLowerCase().trim());
                     filteredSkills = filteredSkills.filter(s => s.intern_name && s.intern_name.toLowerCase().trim() === userVal.toLowerCase().trim());
                 }
+            } else {
+                // Employees and Interns should only see their own personal statistics on their dashboard
+                const myUname = currentUser.username.toLowerCase().trim();
+                filteredLogs = filteredLogs.filter(l => l.intern_name && l.intern_name.toLowerCase().trim() === myUname);
+                filteredTasks = filteredTasks.filter(t => t.intern_name && t.intern_name.toLowerCase().trim() === myUname);
+                filteredSkills = filteredSkills.filter(s => s.intern_name && s.intern_name.toLowerCase().trim() === myUname);
             }
 
             // 1. Calculate KPIs
@@ -2559,11 +2570,20 @@
         // Action Helpers: Update task status
         async function updateTaskStatus(taskId, status) {
             try {
+                let percent = undefined;
+                if (status === 'Not Started') {
+                    percent = 0;
+                } else if (status === 'In Progress') {
+                    percent = 50;
+                } else if (status === 'Completed') {
+                    percent = 100;
+                }
+
                 const res = await apiFetch(`/tasks/${taskId}`, {
                     method: 'PUT',
                     body: {
                         status: status,
-                        percent_done: status === 'Completed' ? 100 : undefined
+                        percent_done: percent
                     }
                 });
                 if (res.ok) {
@@ -5007,3 +5027,225 @@
         // Run initial authentication check on load
         checkAuth();
     
+        /* ----------------- HOSTING & DOMAIN DETAILS LOGIC (Admin Only) ----------------- */
+        let hostingData = {};
+        let currentHostingSheet = 'GoDaddy';
+
+        async function loadHostingDetails() {
+            try {
+                const res = await apiFetch('/admin/hosting-details');
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    showToast(errData.error || "Failed to load hosting details from server.", "error");
+                    return;
+                }
+                hostingData = await res.json();
+                renderHostingTable();
+            } catch (err) {
+                console.error("Failed to load hosting details:", err);
+                showToast("Error loading hosting details: " + err.message, "error");
+            }
+        }
+
+        function changeHostingSheet() {
+            currentHostingSheet = document.getElementById('hosting-sheet-select').value;
+            renderHostingTable();
+        }
+
+        function renderHostingTable() {
+            const rows = hostingData[currentHostingSheet] || [];
+            const tableHead = document.getElementById('hosting-table-head');
+            const tableBody = document.getElementById('hosting-table-body');
+            
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
+
+            if (rows.length === 0) {
+                tableHead.innerHTML = `<tr><th>Domains</th><th>Actions</th></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--text-muted); padding:20px;">No details found.</td></tr>`;
+                return;
+            }
+
+            // Get headers from first row keys, excluding '_row_idx'
+            const headers = Object.keys(rows[0]).filter(k => k !== '_row_idx' && k !== 'id');
+            
+            // Render Headers
+            const thr = document.createElement('tr');
+            headers.forEach(h => {
+                const th = document.createElement('th');
+                th.innerText = h;
+                if (h === 'Sl No') th.style.width = '70px';
+                thr.appendChild(th);
+            });
+            const thAction = document.createElement('th');
+            thAction.innerText = 'Actions';
+            thAction.style.textAlign = 'center';
+            thAction.style.width = '150px';
+            thr.appendChild(thAction);
+            tableHead.appendChild(thr);
+
+            // Render Rows
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+                headers.forEach(h => {
+                    const td = document.createElement('td');
+                    td.innerText = r[h] || '';
+                    if (h === 'Domains') td.style.fontWeight = '600';
+                    tr.appendChild(td);
+                });
+
+                // Actions cell
+                const tdAction = document.createElement('td');
+                tdAction.style.textAlign = 'center';
+                tdAction.innerHTML = `
+                    <button onclick="openHostingModal(true, '${r.id}')" class="btn-action edit" title="Edit" style="background: rgba(99,102,241,0.1); color: var(--primary); padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; margin-right: 6px; font-weight:600;"><i class="fa-solid fa-pen"></i> Edit</button>
+                    <button onclick="deleteHostingRow('${r.id}')" class="btn-action delete" title="Delete" style="background: rgba(239,68,68,0.1); color: var(--danger); padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; font-weight:600;"><i class="fa-solid fa-trash"></i> Delete</button>
+                `;
+                tr.appendChild(tdAction);
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function filterHostingTable() {
+            const query = document.getElementById('hosting-search').value.toLowerCase().trim();
+            const rows = document.querySelectorAll('#hosting-table-body tr');
+            rows.forEach(row => {
+                const cells = Array.from(row.querySelectorAll('td'));
+                if (cells.length <= 1) return;
+                const match = cells.some(c => c.innerText.toLowerCase().includes(query));
+                row.style.display = match ? '' : 'none';
+            });
+        }
+
+        function openHostingModal(isEdit = false, itemId = null) {
+            const modal = document.getElementById('hosting-modal');
+            const titleEl = document.getElementById('hosting-modal-title');
+            const form = document.getElementById('hostingForm');
+            const fieldsContainer = document.getElementById('hosting-dynamic-fields');
+            
+            form.reset();
+            fieldsContainer.innerHTML = '';
+            
+            const rows = hostingData[currentHostingSheet] || [];
+            const headers = rows.length > 0 ? Object.keys(rows[0]).filter(k => k !== '_row_idx' && k !== 'Sl No' && k !== 'id') : ['Domains'];
+            
+            let rowData = null;
+            if (isEdit && itemId !== null) {
+                titleEl.innerText = `Edit ${currentHostingSheet} Detail`;
+                document.getElementById('hosting-edit-row-idx').value = itemId;
+                rowData = rows.find(r => r.id === itemId);
+            } else {
+                titleEl.innerText = `Add ${currentHostingSheet} Detail`;
+                document.getElementById('hosting-edit-row-idx').value = '';
+            }
+
+            headers.forEach(h => {
+                const group = document.createElement('div');
+                group.className = 'form-group';
+                group.style.marginBottom = '12px';
+                
+                const label = document.createElement('label');
+                label.innerText = h;
+                label.setAttribute('for', `field_${h}`);
+                
+                let input;
+                if (h.toLowerCase().includes('date')) {
+                    input = document.createElement('input');
+                    input.type = 'date';
+                } else {
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.placeholder = `Enter ${h.toLowerCase()}`;
+                }
+                
+                input.id = `field_${h}`;
+                input.name = h;
+                if (h === 'Domains') input.required = true;
+                if (rowData) input.value = rowData[h] || '';
+
+                group.appendChild(label);
+                group.appendChild(input);
+                fieldsContainer.appendChild(group);
+            });
+
+            modal.style.display = 'flex';
+        }
+
+        function closeHostingModal() {
+            document.getElementById('hosting-modal').style.display = 'none';
+        }
+
+        async function handleHostingSubmit(e) {
+            e.preventDefault();
+            const rowIdx = document.getElementById('hosting-edit-row-idx').value;
+            const isEdit = !!rowIdx;
+            
+            const form = document.getElementById('hostingForm');
+            const formData = new FormData(form);
+            const values = {};
+            formData.forEach((val, key) => {
+                if (key !== '') values[key] = val;
+            });
+
+            const payload = {
+                sheet_name: currentHostingSheet,
+                values: values
+            };
+
+            const submitBtn = document.getElementById('btn-submit-hosting');
+            if (submitBtn) submitBtn.disabled = true;
+
+            try {
+                let url = '/admin/hosting-details/add';
+                let method = 'POST';
+                if (isEdit) {
+                    url = '/admin/hosting-details/edit';
+                    method = 'PUT';
+                    payload.row_idx = rowIdx;
+                }
+
+                const res = await apiFetch(url, {
+                    method: method,
+                    body: payload
+                });
+
+                if (res.ok) {
+                    showToast(`Hosting detail ${isEdit ? 'updated' : 'added'} successfully!`, 'success');
+                    closeHostingModal();
+                    loadHostingDetails();
+                } else {
+                    const errData = await res.json();
+                    showToast(errData.error || 'Failed to save hosting detail', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'Failed to save hosting detail', 'error');
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
+
+        async function deleteHostingRow(itemId) {
+            if (!confirm("Are you sure you want to delete this hosting/domain detail? This will update the Excel sheet directly.")) return;
+
+            try {
+                const res = await apiFetch('/admin/hosting-details/delete', {
+                    method: 'DELETE',
+                    body: {
+                        sheet_name: currentHostingSheet,
+                        row_idx: itemId
+                    }
+                });
+
+                if (res.ok) {
+                    showToast("Hosting detail deleted successfully!", "success");
+                    loadHostingDetails();
+                } else {
+                    const errData = await res.json();
+                    showToast(errData.error || 'Failed to delete hosting detail', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'Failed to delete hosting detail', 'error');
+            }
+        }
+
+        

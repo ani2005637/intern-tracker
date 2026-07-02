@@ -2934,6 +2934,261 @@ def export_hosting_details_route():
         return jsonify({"error": f"Failed to export hosting details: {str(e)}"}), 500
 
 
+# =====================================================================
+#             EMPLOYEE ONBOARDING MODULE (ADMIN ONLY)
+# =====================================================================
+
+@app.route('/admin/onboarding/templates', methods=['GET'])
+def get_onboarding_templates():
+    """
+    Fetch all onboarding task templates.
+    """
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        templates = list(db.onboarding_templates.find({}).sort("created_at", 1))
+        serialized = []
+        for t in templates:
+            serialized.append({
+                "id": str(t['_id']),
+                "task_name": t.get("task_name", ""),
+                "description": t.get("description", ""),
+                "required": t.get("required", True)
+            })
+        return jsonify(serialized)
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch templates: {str(e)}"}), 500
+
+
+@app.route('/admin/onboarding/templates', methods=['POST'])
+def create_onboarding_template():
+    """
+    Create a new onboarding task template.
+    """
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json or {}
+    task_name = data.get('task_name', '').strip()
+    description = data.get('description', '').strip()
+    required = data.get('required', True)
+
+    if not task_name:
+        return jsonify({"error": "Task name is required"}), 400
+
+    try:
+        db.onboarding_templates.insert_one({
+            "task_name": task_name,
+            "description": description,
+            "required": required,
+            "created_at": datetime.datetime.utcnow()
+        })
+        return jsonify({"message": "Template created successfully"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to create template: {str(e)}"}), 500
+
+
+@app.route('/admin/onboarding/templates/<id>', methods=['DELETE'])
+def delete_onboarding_template(id):
+    """
+    Delete an onboarding task template.
+    """
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        db.onboarding_templates.delete_one({"_id": ObjectId(id)})
+        return jsonify({"message": "Template deleted successfully"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete template: {str(e)}"}), 500
+
+
+@app.route('/admin/onboarding/progress', methods=['GET'])
+def get_onboarding_progress():
+    """
+    Get onboarding progress of all active approved employees/interns.
+    """
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        users = list(db.users.find({"role": {"$ne": "Admin"}, "approved": True}))
+        
+        progress_data = []
+        for u in users:
+            username = u['username']
+            total_tasks = db.onboarding_tasks.count_documents({"username": username})
+            completed_tasks = db.onboarding_tasks.count_documents({"username": username, "status": "Completed"})
+            
+            progress_data.append({
+                "username": username,
+                "full_name": u.get("full_name", ""),
+                "role": u.get("role", ""),
+                "title": u.get("title", ""),
+                "total_tasks": total_tasks,
+                "completed_tasks": completed_tasks
+            })
+            
+        return jsonify(progress_data)
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch onboarding progress: {str(e)}"}), 500
+
+
+@app.route('/admin/onboarding/assign', methods=['POST'])
+def assign_onboarding():
+    """
+    Assign the current onboarding templates to a user.
+    """
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json or {}
+    target_username = data.get('username')
+
+    if not target_username:
+        return jsonify({"error": "Username is required"}), 400
+
+    try:
+        target_user = db.users.find_one({"username": target_username})
+        if not target_user:
+            return jsonify({"error": "User not found"}), 404
+
+        db.onboarding_tasks.delete_many({"username": target_username})
+
+        templates = list(db.onboarding_templates.find({}))
+        if not templates:
+            return jsonify({"error": "No onboarding templates defined. Please add templates first."}), 400
+
+        tasks_to_insert = []
+        for t in templates:
+            tasks_to_insert.append({
+                "username": target_username,
+                "task_name": t.get("task_name"),
+                "description": t.get("description", ""),
+                "status": "Pending",
+                "submission_link": "",
+                "notes": "",
+                "assigned_at": datetime.datetime.utcnow(),
+                "completed_at": None
+            })
+        
+        db.onboarding_tasks.insert_many(tasks_to_insert)
+        
+        db.notifications.insert_one({
+            "username": target_username,
+            "message": "Your onboarding checklist has been assigned! Please check the Onboarding Checklist tab.",
+            "read": False,
+            "created_at": datetime.datetime.utcnow()
+        })
+        
+        return jsonify({"message": f"Successfully assigned {len(tasks_to_insert)} onboarding tasks to {target_user.get('full_name', target_username)}"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to assign onboarding checklist: {str(e)}"}), 500
+
+
+@app.route('/onboarding/my-checklist', methods=['GET'])
+def get_my_checklist():
+    """
+    Get the logged-in user's onboarding checklist.
+    """
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        tasks = list(db.onboarding_tasks.find({"username": user['username']}).sort("assigned_at", 1))
+        serialized = []
+        for t in tasks:
+            serialized.append({
+                "id": str(t['_id']),
+                "task_name": t.get("task_name", ""),
+                "description": t.get("description", ""),
+                "status": t.get("status", "Pending"),
+                "submission_link": t.get("submission_link", ""),
+                "notes": t.get("notes", ""),
+                "assigned_at": t.get("assigned_at").isoformat() if t.get("assigned_at") else "",
+                "completed_at": t.get("completed_at").isoformat() if t.get("completed_at") else ""
+            })
+        return jsonify(serialized)
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch your checklist: {str(e)}"}), 500
+
+
+@app.route('/onboarding/my-checklist/<task_id>', methods=['PUT'])
+def update_my_checklist_task(task_id):
+    """
+    Update onboarding checklist task status, notes, or links.
+    """
+    user = get_logged_in_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json or {}
+    status = data.get('status')
+    submission_link = data.get('submission_link', '').strip()
+    notes = data.get('notes', '').strip()
+
+    try:
+        task = db.onboarding_tasks.find_one({"_id": ObjectId(task_id)})
+        if not task:
+            return jsonify({"error": "Task not found"}), 404
+
+        if task['username'] != user['username']:
+            return jsonify({"error": "Forbidden: You cannot modify this task"}), 403
+
+        update_fields = {}
+        if status in ['Pending', 'Completed']:
+            update_fields['status'] = status
+            if status == 'Completed':
+                update_fields['completed_at'] = datetime.datetime.utcnow()
+            else:
+                update_fields['completed_at'] = None
+
+        if submission_link is not None:
+            update_fields['submission_link'] = submission_link
+        if notes is not None:
+            update_fields['notes'] = notes
+
+        db.onboarding_tasks.update_one({"_id": ObjectId(task_id)}, {"$set": update_fields})
+        return jsonify({"message": "Task updated successfully"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to update task: {str(e)}"}), 500
+
+
+@app.route('/admin/onboarding/checklist/<username>', methods=['GET'])
+def get_user_onboarding_checklist(username):
+    """
+    Admin fetches the onboarding checklist of a specific user.
+    """
+    user = get_logged_in_user()
+    if not user or user['role'] != 'Admin':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        tasks = list(db.onboarding_tasks.find({"username": username}).sort("assigned_at", 1))
+        serialized = []
+        for t in tasks:
+            serialized.append({
+                "id": str(t['_id']),
+                "task_name": t.get("task_name", ""),
+                "description": t.get("description", ""),
+                "status": t.get("status", "Pending"),
+                "submission_link": t.get("submission_link", ""),
+                "notes": t.get("notes", ""),
+                "assigned_at": t.get("assigned_at").isoformat() if t.get("assigned_at") else "",
+                "completed_at": t.get("completed_at").isoformat() if t.get("completed_at") else ""
+            })
+        return jsonify(serialized)
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch checklist: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=True, host='0.0.0.0', port=port)
