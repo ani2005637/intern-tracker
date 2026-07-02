@@ -2900,6 +2900,10 @@
                                 <label for="tpl_description">Description / Instructions</label>
                                 <textarea id="tpl_description" placeholder="Specify document upload requirements or setup instructions..." style="width:100%; min-height:80px; padding:8px 12px; border-radius:8px;" required></textarea>
                             </div>
+                            <div class="form-group" style="margin-bottom: 12px;">
+                                <label for="tpl_required_docs">Required Documents (comma-separated labels)</label>
+                                <input type="text" id="tpl_required_docs" placeholder="e.g. ID Proof, Address Proof">
+                            </div>
                             <button type="submit" class="btn-submit" style="width: 100%; padding: 8px 16px;"><i class="fa-solid fa-plus"></i> Add Template Task</button>
                         </form>
                         <div id="onboarding-templates-list" style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto;">
@@ -2979,9 +2983,8 @@
                     </div>
                     <form id="onboardingCompleteForm" onsubmit="handleOnboardingSubmitTask(event)">
                         <input type="hidden" id="onboarding-complete-task-id">
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <label for="ob_submission_link">Document / Submission Link (Optional)</label>
-                            <input type="url" id="ob_submission_link" placeholder="e.g. Google Drive folder or GitHub URL">
+                        <div id="ob-inputs-container">
+                            <!-- Populated dynamically with multiple document inputs -->
                         </div>
                         <div class="form-group" style="margin-bottom: 15px;">
                             <label for="ob_notes">Submission Notes (Optional)</label>
@@ -8728,10 +8731,17 @@
                 card.style.alignItems = 'flex-start';
                 card.style.gap = '10px';
 
+                let docsHtml = '';
+                if (t.required_docs && t.required_docs.length > 0) {
+                    docsHtml = `<div style="margin-top:6px; display:flex; gap:4px; flex-wrap:wrap;">` + 
+                        t.required_docs.map(d => `<span style="font-size:9px; background:rgba(99,102,241,0.2); color:var(--primary); padding:2px 6px; border-radius:4px;">${escapeHTML(d)}</span>`).join('') + 
+                        `</div>`;
+                }
                 card.innerHTML = `
                     <div style="flex:1;">
                         <div style="font-weight:600; font-size:13px; color:var(--text-color);">${escapeHTML(t.task_name)}</div>
                         <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">${escapeHTML(t.description || 'No description')}</div>
+                        ${docsHtml}
                     </div>
                     <button onclick="deleteOnboardingTemplate('${t.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:14px; padding:4px;"><i class="fa-solid fa-trash-can"></i></button>
                 `;
@@ -8796,6 +8806,8 @@
             e.preventDefault();
             const nameEl = document.getElementById('tpl_task_name');
             const descEl = document.getElementById('tpl_description');
+            const docsEl = document.getElementById('tpl_required_docs');
+            const req_docs = docsEl.value.split(',').map(d => d.trim()).filter(d => d.length > 0);
             
             try {
                 const res = await apiFetch('/admin/onboarding/templates', {
@@ -8803,6 +8815,7 @@
                     body: {
                         task_name: nameEl.value,
                         description: descEl.value,
+                        required_docs: req_docs,
                         required: true
                     }
                 });
@@ -8810,6 +8823,7 @@
                     showToast("Onboarding template task added successfully!", "success");
                     nameEl.value = '';
                     descEl.value = '';
+                    docsEl.value = '';
                     loadOnboardingAdmin();
                 } else {
                     const data = await res.json();
@@ -8881,13 +8895,15 @@
                         div.style.marginBottom = '10px';
                         
                         let submissionHtml = '';
-                        if (t.submission_link) {
-                            submissionHtml = `
-                                <div style="font-size:12px; margin-top:8px; display:flex; align-items:center; gap:6px;">
-                                    <i class="fa-solid fa-link" style="color:var(--primary);"></i>
-                                    <a href="${t.submission_link}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none;">View Submission Document</a>
-                                </div>
-                            `;
+                        if (t.submissions && Object.keys(t.submissions).length > 0) {
+                            submissionHtml = `<div style="font-size:12px; margin-top:8px; display:flex; flex-direction:column; gap:6px;">` +
+                                Object.entries(t.submissions).map(([label, link]) => `
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <i class="fa-solid fa-link" style="color:var(--primary); font-size:11px;"></i>
+                                        <span style="color:var(--text-muted); font-weight:500;">${escapeHTML(label)}:</span>
+                                        <a href="${link}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none;">View Document</a>
+                                    </div>
+                                `).join('') + `</div>`;
                         }
                         
                         let notesHtml = '';
@@ -8965,13 +8981,15 @@
                 card.style.borderLeft = t.status === 'Completed' ? '4px solid var(--success)' : '4px solid var(--warning)';
                 
                 let submissionHtml = '';
-                if (t.submission_link) {
-                    submissionHtml = `
-                        <div style="font-size:11px; margin-top:8px; display:flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-link" style="color:var(--primary);"></i>
-                            <a href="${t.submission_link}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none;">View Submission</a>
-                        </div>
-                    `;
+                if (t.submissions && Object.keys(t.submissions).length > 0) {
+                    submissionHtml = `<div style="font-size:11px; margin-top:8px; display:flex; flex-direction:column; gap:4px;">` +
+                        Object.entries(t.submissions).map(([label, link]) => `
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <i class="fa-solid fa-link" style="color:var(--primary);"></i>
+                                <span style="color:var(--text-muted); font-weight:500;">${escapeHTML(label)}:</span>
+                                <a href="${link}" target="_blank" style="color:var(--primary); font-weight:600; text-decoration:none;">View</a>
+                            </div>
+                        `).join('') + `</div>`;
                 }
                 
                 let notesHtml = '';
@@ -9012,6 +9030,33 @@
             document.getElementById('onboarding-complete-task-id').value = id;
             document.getElementById('onboarding-complete-task-title').innerText = title;
             document.getElementById('onboardingCompleteForm').reset();
+
+            const task = myOnboardingChecklist.find(t => t.id === id);
+            const container = document.getElementById('ob-inputs-container');
+            container.innerHTML = '';
+            
+            if (task && task.required_docs && task.required_docs.length > 0) {
+                task.required_docs.forEach(doc => {
+                    const div = document.createElement('div');
+                    div.className = 'form-group';
+                    div.style.marginBottom = '12px';
+                    div.innerHTML = `
+                        <label for="ob_sub_${doc}" style="font-size:12px; margin-bottom:4px; display:block;">${escapeHTML(doc)} Link (URL)</label>
+                        <input type="url" id="ob_sub_${doc}" class="ob-doc-input" data-doc="${escapeHTML(doc)}" placeholder="Paste URL link for ${escapeHTML(doc)}" required style="width:100%;">
+                    `;
+                    container.appendChild(div);
+                });
+            } else {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.style.marginBottom = '12px';
+                div.innerHTML = `
+                    <label for="ob_submission_link">Document / Submission Link (URL)</label>
+                    <input type="url" id="ob_submission_link" class="ob-doc-input" data-doc="Submission Document" placeholder="e.g. Google Drive folder or GitHub URL" required style="width:100%;">
+                `;
+                container.appendChild(div);
+            }
+
             document.getElementById('onboarding-complete-modal').style.display = 'flex';
         }
 
@@ -9022,15 +9067,21 @@
         async function handleOnboardingSubmitTask(e) {
             e.preventDefault();
             const id = document.getElementById('onboarding-complete-task-id').value;
-            const link = document.getElementById('ob_submission_link').value;
             const notes = document.getElementById('ob_notes').value;
+
+            const submissions = {};
+            const docInputs = document.querySelectorAll('.ob-doc-input');
+            docInputs.forEach(input => {
+                const docLabel = input.getAttribute('data-doc');
+                submissions[docLabel] = input.value.strip ? input.value.strip() : input.value;
+            });
 
             try {
                 const res = await apiFetch(`/onboarding/my-checklist/${id}`, {
                     method: 'PUT',
                     body: {
                         status: 'Completed',
-                        submission_link: link,
+                        submissions: submissions,
                         notes: notes
                     }
                 });

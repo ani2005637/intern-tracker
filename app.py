@@ -2955,6 +2955,7 @@ def get_onboarding_templates():
                 "id": str(t['_id']),
                 "task_name": t.get("task_name", ""),
                 "description": t.get("description", ""),
+                "required_docs": t.get("required_docs", []),
                 "required": t.get("required", True)
             })
         return jsonify(serialized)
@@ -2974,6 +2975,7 @@ def create_onboarding_template():
     data = request.json or {}
     task_name = data.get('task_name', '').strip()
     description = data.get('description', '').strip()
+    required_docs = [d.strip() for d in data.get('required_docs', []) if d.strip()]
     required = data.get('required', True)
 
     if not task_name:
@@ -2983,6 +2985,7 @@ def create_onboarding_template():
         db.onboarding_templates.insert_one({
             "task_name": task_name,
             "description": description,
+            "required_docs": required_docs,
             "required": required,
             "created_at": datetime.datetime.utcnow()
         })
@@ -3071,8 +3074,9 @@ def assign_onboarding():
                 "username": target_username,
                 "task_name": t.get("task_name"),
                 "description": t.get("description", ""),
+                "required_docs": t.get("required_docs", []),
                 "status": "Pending",
-                "submission_link": "",
+                "submissions": {},
                 "notes": "",
                 "assigned_at": datetime.datetime.utcnow(),
                 "completed_at": None
@@ -3109,8 +3113,9 @@ def get_my_checklist():
                 "id": str(t['_id']),
                 "task_name": t.get("task_name", ""),
                 "description": t.get("description", ""),
+                "required_docs": t.get("required_docs", []),
                 "status": t.get("status", "Pending"),
-                "submission_link": t.get("submission_link", ""),
+                "submissions": t.get("submissions", {}),
                 "notes": t.get("notes", ""),
                 "assigned_at": t.get("assigned_at").isoformat() if t.get("assigned_at") else "",
                 "completed_at": t.get("completed_at").isoformat() if t.get("completed_at") else ""
@@ -3131,7 +3136,7 @@ def update_my_checklist_task(task_id):
 
     data = request.json or {}
     status = data.get('status')
-    submission_link = data.get('submission_link', '').strip()
+    submissions = data.get('submissions')
     notes = data.get('notes', '').strip()
 
     try:
@@ -3150,8 +3155,8 @@ def update_my_checklist_task(task_id):
             else:
                 update_fields['completed_at'] = None
 
-        if submission_link is not None:
-            update_fields['submission_link'] = submission_link
+        if submissions is not None:
+            update_fields['submissions'] = submissions
         if notes is not None:
             update_fields['notes'] = notes
 
@@ -3178,8 +3183,9 @@ def get_user_onboarding_checklist(username):
                 "id": str(t['_id']),
                 "task_name": t.get("task_name", ""),
                 "description": t.get("description", ""),
+                "required_docs": t.get("required_docs", []),
                 "status": t.get("status", "Pending"),
-                "submission_link": t.get("submission_link", ""),
+                "submissions": t.get("submissions", {}),
                 "notes": t.get("notes", ""),
                 "assigned_at": t.get("assigned_at").isoformat() if t.get("assigned_at") else "",
                 "completed_at": t.get("completed_at").isoformat() if t.get("completed_at") else ""
