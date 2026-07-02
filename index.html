@@ -2174,11 +2174,23 @@
                             <span>Activity Updates Logs</span>
                         </div>
                         <div id="activity-view-toggle-container" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <label for="activity-user-filter" style="font-size: 13px; font-weight: 500; color: var(--text-muted);">Filter User:</label>
-                                <select id="activity-user-filter" onchange="renderActivityLogs()" style="padding: 6px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); outline: none;">
-                                    <option value="ALL">All Team Members</option>
-                                </select>
+                            <!-- Filter for Employees/Interns Work Logs -->
+                            <div id="filter-work-logs-container" style="display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-magnifying-glass" style="font-size: 12px; color: var(--text-muted);"></i>
+                                <input type="text" id="activity-name-search" oninput="renderActivityLogs()" placeholder="Search Name or Username..." style="padding: 6px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); outline: none; width: 200px;">
+                            </div>
+
+                            <!-- Filters for Session Attendance Logs -->
+                            <div id="filter-session-logs-container" style="display: none; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-magnifying-glass" style="font-size: 12px; color: var(--text-muted);"></i>
+                                    <input type="text" id="activity-session-search" oninput="renderActivityLogs()" placeholder="Search Name or Username..." style="padding: 6px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); outline: none; width: 200px;">
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-calendar-day" style="font-size: 12px; color: var(--text-muted);"></i>
+                                    <input type="date" id="activity-date-filter" onchange="renderActivityLogs()" style="padding: 6px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); outline: none;">
+                                    <button onclick="clearActivityDateFilter()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 2px;" title="Clear Date"><i class="fa-solid fa-circle-xmark"></i></button>
+                                </div>
                             </div>
                             <button id="btn-view-employees" class="btn btn-primary btn-sm" onclick="setActivityView('employees')">Employees Work Logs</button>
                             <button id="btn-view-interns" class="btn btn-secondary btn-sm" onclick="setActivityView('interns')">Interns Work Logs</button>
@@ -5201,9 +5213,12 @@
             if (!tbody) return;
             tbody.innerHTML = '';
             
-            // Filter by user selection if applicable
-            const activityFilter = document.getElementById('activity-user-filter');
-            const selectedUser = activityFilter ? activityFilter.value : 'ALL';
+            // Fetch text search and date queries
+            const sessionSearchEl = document.getElementById('activity-session-search');
+            const sessionQuery = sessionSearchEl ? sessionSearchEl.value.toLowerCase().trim() : '';
+            
+            const dateFilterEl = document.getElementById('activity-date-filter');
+            const dateQuery = dateFilterEl ? dateFilterEl.value : ''; // 'YYYY-MM-DD'
             
             // Enforce hierarchical monitoring for session attendance:
             // Admin sees Manager, Employee, and Intern logs.
@@ -5221,8 +5236,27 @@
             // Filter out test IDs / test usernames
             rawLogs = rawLogs.filter(log => !isTestUser(log.username, log.full_name));
             
-            if (selectedUser !== 'ALL') {
-                rawLogs = rawLogs.filter(log => (log.username || '').toLowerCase().trim() === selectedUser.toLowerCase().trim());
+            if (sessionQuery) {
+                rawLogs = rawLogs.filter(log => {
+                    const matchesUser = (log.username || '').toLowerCase().includes(sessionQuery);
+                    const matchesName = (log.full_name || '').toLowerCase().includes(sessionQuery);
+                    return matchesUser || matchesName;
+                });
+            }
+            
+            if (dateQuery) {
+                rawLogs = rawLogs.filter(log => {
+                    // Extract local YYYY-MM-DD from log.login_time
+                    try {
+                        const logDate = new Date(log.login_time);
+                        const year = logDate.getFullYear();
+                        const month = String(logDate.getMonth() + 1).padStart(2, '0');
+                        const day = String(logDate.getDate()).padStart(2, '0');
+                        return `${year}-${month}-${day}` === dateQuery;
+                    } catch (e) {
+                        return false;
+                    }
+                });
             }
             
             let approvedLeaves = (state.leaveRequests || []).filter(r => r.status === 'Approved');
@@ -5234,8 +5268,22 @@
                 }
                 return false;
             });
-            if (selectedUser !== 'ALL') {
-                approvedLeaves = approvedLeaves.filter(r => (r.username || '').toLowerCase().trim() === selectedUser.toLowerCase().trim());
+            
+            if (sessionQuery) {
+                approvedLeaves = approvedLeaves.filter(r => {
+                    const matchesUser = (r.username || '').toLowerCase().includes(sessionQuery);
+                    const matchesName = (r.full_name || '').toLowerCase().includes(sessionQuery);
+                    return matchesUser || matchesName;
+                });
+            }
+            
+            if (dateQuery) {
+                approvedLeaves = approvedLeaves.filter(r => {
+                    // Match leave range containing the query date
+                    const startStr = r.start_date; // 'YYYY-MM-DD'
+                    const endStr = r.end_date; // 'YYYY-MM-DD'
+                    return dateQuery >= startStr && dateQuery <= endStr;
+                });
             }
 
             // Inject virtual leave session logs for dates with approved leaves but no session logs
@@ -5454,16 +5502,21 @@
             if (!tbody) return;
             tbody.innerHTML = '';
             
-            // Filter by user selection if applicable
-            const activityFilter = document.getElementById('activity-user-filter');
-            const selectedUser = activityFilter ? activityFilter.value : 'ALL';
+            // Filter by text query
+            const nameSearchEl = document.getElementById('activity-name-search');
+            const searchQuery = nameSearchEl ? nameSearchEl.value.toLowerCase().trim() : '';
             
             let logsToRender = state.logs.filter(log => {
                 const userObj = activeUsers.find(u => u.username.toLowerCase().trim() === (log.intern_name || '').toLowerCase().trim());
                 const userRole = userObj ? userObj.role : 'Intern';
+                const displayName = userObj ? userObj.full_name : log.intern_name;
                 
-                if (selectedUser !== 'ALL' && (log.intern_name || '').toLowerCase().trim() !== selectedUser.toLowerCase().trim()) {
-                    return false;
+                if (searchQuery) {
+                    const matchesUser = (log.intern_name || '').toLowerCase().includes(searchQuery);
+                    const matchesName = (displayName || '').toLowerCase().includes(searchQuery);
+                    if (!matchesUser && !matchesName) {
+                        return false;
+                    }
                 }
                 
                 if (currentActivityView === 'employees') {
@@ -9199,6 +9252,15 @@
             img.style.borderRadius = '8px';
             img.style.boxShadow = '0 10px 40px rgba(0,0,0,0.5)';
             w.document.body.appendChild(img);
+        }
+
+        
+        function clearActivityDateFilter() {
+            const dateEl = document.getElementById('activity-date-filter');
+            if (dateEl) {
+                dateEl.value = '';
+                renderActivityLogs();
+            }
         }
 
         </script>
